@@ -80,7 +80,11 @@ func ExtractFromKafka(ctx context.Context, headers map[string]string) context.Co
 }
 
 // InjectToKafka injects trace context into Kafka headers.
+// If headers is nil, returns early to prevent panic.
 func InjectToKafka(ctx context.Context, headers map[string]string) {
+	if headers == nil {
+		return
+	}
 	otel.GetTextMapPropagator().Inject(ctx, KafkaCarrier(headers))
 }
 

@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 
+	"go.opentelemetry.io/contrib/propagators/b3"
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/exporters/otlp/otlptrace/otlptracegrpc"
 	"go.opentelemetry.io/otel/exporters/otlp/otlptrace/otlptracehttp"
@@ -45,7 +46,7 @@ func New(ctx context.Context, cfg Config) (*Tracer, error) { //nolint:gocritic /
 	provider := createProvider(res, sampler, exporter)
 
 	otel.SetTracerProvider(provider)
-	otel.SetTextMapPropagator(createPropagator())
+	otel.SetTextMapPropagator(createPropagator(cfg.Propagation))
 
 	return &Tracer{
 		provider: provider,
@@ -160,12 +161,26 @@ func createProvider(res *resource.Resource, sampler sdktrace.Sampler, exporter s
 	return sdktrace.NewTracerProvider(providerOpts...)
 }
 
-// createPropagator creates a W3C trace context propagator.
-func createPropagator() propagation.TextMapPropagator {
-	return propagation.NewCompositeTextMapPropagator(
-		propagation.TraceContext{},
-		propagation.Baggage{},
-	)
+// createPropagator creates a trace context propagator based on the configured propagation type.
+func createPropagator(propagationType PropagationType) propagation.TextMapPropagator {
+	switch propagationType {
+	case PropagationB3:
+		return propagation.NewCompositeTextMapPropagator(
+			b3.New(b3.WithInjectEncoding(b3.B3MultipleHeader)),
+			propagation.Baggage{},
+		)
+	case PropagationW3C:
+		return propagation.NewCompositeTextMapPropagator(
+			propagation.TraceContext{},
+			propagation.Baggage{},
+		)
+	default:
+		// Default to W3C trace context
+		return propagation.NewCompositeTextMapPropagator(
+			propagation.TraceContext{},
+			propagation.Baggage{},
+		)
+	}
 }
 
 // Tracer returns the underlying OpenTelemetry tracer.
