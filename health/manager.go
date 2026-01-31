@@ -77,8 +77,10 @@ type Manager struct {
 	cacheTime     time.Time
 	failureCounts map[string]int
 
-	stopCh chan struct{}
-	doneCh chan struct{}
+	backgroundMu      sync.Mutex
+	backgroundRunning bool
+	stopCh            chan struct{}
+	doneCh            chan struct{}
 }
 
 // NewManager creates a new health check manager.
@@ -91,8 +93,6 @@ func NewManager(config ManagerConfig) *Manager {
 		checkers:       make([]Checker, 0),
 		requiredChecks: make(map[string]bool),
 		failureCounts:  make(map[string]int),
-		stopCh:         make(chan struct{}),
-		doneCh:         make(chan struct{}),
 	}
 }
 
@@ -203,6 +203,16 @@ func (m *Manager) runChecks(ctx context.Context) Report {
 
 // StartBackground starts background health checks.
 func (m *Manager) StartBackground(ctx context.Context) {
+	m.backgroundMu.Lock()
+	if m.backgroundRunning {
+		m.backgroundMu.Unlock()
+		return
+	}
+	m.backgroundRunning = true
+	m.stopCh = make(chan struct{})
+	m.doneCh = make(chan struct{})
+	m.backgroundMu.Unlock()
+
 	go func() {
 		ticker := time.NewTicker(m.config.BackgroundInterval)
 		defer ticker.Stop()
@@ -226,6 +236,14 @@ func (m *Manager) StartBackground(ctx context.Context) {
 
 // StopBackground stops background health checks.
 func (m *Manager) StopBackground() {
+	m.backgroundMu.Lock()
+	if !m.backgroundRunning {
+		m.backgroundMu.Unlock()
+		return
+	}
+	m.backgroundRunning = false
+	m.backgroundMu.Unlock()
+
 	close(m.stopCh)
 	<-m.doneCh
 }
