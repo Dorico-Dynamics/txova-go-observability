@@ -3,8 +3,10 @@
 package observability
 
 import (
+	"bufio"
 	"context"
 	"fmt"
+	"net"
 	"net/http"
 	"time"
 
@@ -12,6 +14,11 @@ import (
 	"github.com/Dorico-Dynamics/txova-go-observability/metrics"
 	"github.com/Dorico-Dynamics/txova-go-observability/tracing"
 )
+
+// PathLabeler is a function that extracts a normalized path label from an HTTP request.
+// This is used to prevent cardinality explosion in metrics by normalizing dynamic
+// path segments (e.g., "/users/123" -> "/users/{id}").
+type PathLabeler func(r *http.Request) string
 
 // Config holds configuration for the observability setup.
 type Config struct {
@@ -28,6 +35,10 @@ type Config struct {
 	MetricsEnabled bool
 	TracingEnabled bool
 	HealthEnabled  bool
+
+	// PathLabeler extracts a normalized path label for metrics.
+	// If nil, defaults to returning "/unknown" to prevent cardinality explosion.
+	PathLabeler PathLabeler
 }
 
 // DefaultConfig returns a Config with sensible defaults.
@@ -45,6 +56,9 @@ func DefaultConfig() Config {
 // Observability provides a central entry point for all observability features.
 type Observability struct {
 	config Config
+
+	// pathLabeler extracts normalized path labels for metrics.
+	pathLabeler PathLabeler
 
 	// Tracer is the OpenTelemetry tracer.
 	Tracer *tracing.Tracer
@@ -80,14 +94,26 @@ type Observability struct {
 	SafetyCollector *metrics.SafetyCollector
 }
 
+// defaultPathLabeler returns a safe default path to prevent cardinality explosion.
+func defaultPathLabeler(r *http.Request) string {
+	return "/unknown"
+}
+
 // New creates a new Observability instance with the given configuration.
 func New(ctx context.Context, cfg *Config) (*Observability, error) {
 	if cfg == nil {
 		defaultCfg := DefaultConfig()
 		cfg = &defaultCfg
 	}
+
+	pathLabeler := cfg.PathLabeler
+	if pathLabeler == nil {
+		pathLabeler = defaultPathLabeler
+	}
+
 	obs := &Observability{
-		config: *cfg,
+		config:      *cfg,
+		pathLabeler: pathLabeler,
 	}
 
 	// Initialize tracing.
@@ -225,8 +251,10 @@ func (o *Observability) metricsMiddleware(next http.Handler) http.Handler {
 		next.ServeHTTP(rw, r)
 
 		// Record metrics after request completes.
+		// Use PathLabeler to normalize the path and prevent cardinality explosion.
+		normalizedPath := o.pathLabeler(r)
 		duration := time.Since(start)
-		o.HTTPCollector.RecordRequest(r.Method, r.URL.Path, rw.statusCode, duration)
+		o.HTTPCollector.RecordRequest(r.Method, normalizedPath, rw.statusCode, duration)
 	})
 }
 
@@ -251,6 +279,34 @@ func (rw *responseWriter) Write(b []byte) (int, error) {
 		rw.written = true
 	}
 	return rw.ResponseWriter.Write(b)
+}
+
+// Unwrap returns the wrapped ResponseWriter for http.ResponseController.
+func (rw *responseWriter) Unwrap() http.ResponseWriter {
+	return rw.ResponseWriter
+}
+
+// Hijack implements http.Hijacker if the underlying ResponseWriter supports it.
+func (rw *responseWriter) Hijack() (net.Conn, *bufio.ReadWriter, error) {
+	if hijacker, ok := rw.ResponseWriter.(http.Hijacker); ok {
+		return hijacker.Hijack()
+	}
+	return nil, nil, fmt.Errorf("underlying ResponseWriter does not support hijacking")
+}
+
+// Flush implements http.Flusher if the underlying ResponseWriter supports it.
+func (rw *responseWriter) Flush() {
+	if flusher, ok := rw.ResponseWriter.(http.Flusher); ok {
+		flusher.Flush()
+	}
+}
+
+// Push implements http.Pusher if the underlying ResponseWriter supports it.
+func (rw *responseWriter) Push(target string, opts *http.PushOptions) error {
+	if pusher, ok := rw.ResponseWriter.(http.Pusher); ok {
+		return pusher.Push(target, opts)
+	}
+	return fmt.Errorf("underlying ResponseWriter does not support push")
 }
 
 // RegisterHealthChecker registers a health checker with the manager.

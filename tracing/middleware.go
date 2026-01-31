@@ -4,11 +4,21 @@ import (
 	"context"
 	"fmt"
 	"net/http"
+	"net/url"
 
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/codes"
 	"go.opentelemetry.io/otel/trace"
 )
+
+// sanitizeURL returns a sanitized URL string with query parameters and fragment removed
+// to prevent PII leakage in traces.
+func sanitizeURL(u *url.URL) string {
+	sanitized := *u
+	sanitized.RawQuery = ""
+	sanitized.Fragment = ""
+	return sanitized.String()
+}
 
 // Middleware returns an HTTP middleware that creates spans for incoming requests.
 func Middleware(tracer *Tracer) func(http.Handler) http.Handler {
@@ -28,10 +38,11 @@ func Middleware(tracer *Tracer) func(http.Handler) http.Handler {
 			defer span.End()
 
 			// Add standard HTTP attributes.
+			// Use sanitized URL to prevent PII leakage from query parameters.
 			span.SetAttributes(
 				HTTPMethod(r.Method),
 				HTTPRoute(route),
-				HTTPURL(r.URL.String()),
+				HTTPURL(sanitizeURL(r.URL)),
 				HTTPScheme(r.URL.Scheme),
 				HTTPHost(r.Host),
 			)
@@ -147,9 +158,10 @@ func (rt *tracingRoundTripper) RoundTrip(r *http.Request) (*http.Response, error
 	defer span.End()
 
 	// Add HTTP attributes.
+	// Use sanitized URL to prevent PII leakage from query parameters.
 	span.SetAttributes(
 		HTTPMethod(r.Method),
-		HTTPURL(r.URL.String()),
+		HTTPURL(sanitizeURL(r.URL)),
 		HTTPHost(r.Host),
 	)
 
