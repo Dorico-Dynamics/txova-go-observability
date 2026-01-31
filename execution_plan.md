@@ -1,6 +1,6 @@
 # txova-go-observability Execution Plan
 
-**Version:** 1.0  
+**Version:** 1.1  
 **Module:** `github.com/Dorico-Dynamics/txova-go-observability`  
 **Target Test Coverage:** >80%  
 **Internal Dependencies:** txova-go-core  
@@ -12,40 +12,32 @@
 
 | Phase | Status | Coverage |
 |-------|--------|----------|
-| Phase 1: Project Setup & errors | ✅ Complete | 100.0% |
+| Phase 1: Project Setup | ✅ Complete | - |
 | Phase 2: metrics (HTTP & Infrastructure) | Not Started | - |
 | Phase 3: metrics (Business) | Not Started | - |
 | Phase 4: tracing | Not Started | - |
 | Phase 5: health | Not Started | - |
-| Phase 6: middleware & Integration | Not Started | - |
-| Phase 7: Documentation & QA | Not Started | - |
+| Phase 6: Integration & QA | Not Started | - |
 
-**Overall Test Coverage: 100.0%**
+**Overall Test Coverage: 0%**
 
 ---
 
-## Phase 1: Project Setup & Foundation (Week 1)
+## Phase 1: Project Setup (Week 1)
 
 ### 1.1 Project Initialization
 - [x] Initialize Go module with `go mod init github.com/Dorico-Dynamics/txova-go-observability`
 - [x] Add dependency on `txova-go-core`
 - [x] Add external dependencies (prometheus, otel, otlp)
-- [x] Create directory structure for all packages
+- [x] Create directory structure for packages (metrics, tracing, health)
 - [x] Set up `.gitignore` for Go projects
 - [x] Configure golangci-lint with strict rules
 - [x] Set up GitHub Actions workflows (test, release)
 
-### 1.2 Package: `errors` - Observability Errors
-- [x] Define `Error` type with code and context
-- [x] Implement error codes (COLLECTOR_INIT_FAILED, TRACER_INIT_FAILED, HEALTH_CHECK_FAILED, EXPORTER_ERROR, etc.)
-- [x] Implement constructor functions for each error type
-- [x] Implement `Error()`, `Is()`, `As()`, and `Unwrap()` methods
-- [x] Ensure errors integrate with txova-go-core AppError where appropriate
-- [x] Write tests for all error types
+**Note:** Error handling uses `txova-go-core/errors` package. No separate errors package needed.
 
 **Deliverables:**
-- [x] `errors/` package with observability-specific error handling
-- [x] Full test coverage for error creation and wrapping (100%)
+- [x] Project structure and CI/CD configuration
 
 ---
 
@@ -53,10 +45,9 @@
 
 ### 2.1 Package: `metrics` - Core Infrastructure
 - [ ] Define `Config` struct with namespace, subsystem, and bucket configurations
-- [ ] Implement `Registry` wrapper for Prometheus registry management
 - [ ] Implement histogram bucket presets (HTTP, DB, duration, fare)
 - [ ] Implement label validation (cardinality guards < 100 unique values)
-- [ ] Write tests for registry and configuration
+- [ ] Write tests for configuration and bucket presets
 
 ### 2.2 Package: `metrics` - HTTP Metrics
 - [ ] Implement `http_requests_total` counter (method, path, status labels)
@@ -95,7 +86,7 @@
 **Deliverables:**
 - [ ] `metrics/` package with HTTP, DB, Redis, and Kafka collectors
 - [ ] All collectors registered with "txova" namespace
-- [ ] Tests verifying metric registration and label handling
+- [ ] Tests verifying metric registration and label handling (>80% coverage)
 
 ---
 
@@ -138,7 +129,7 @@
 **Deliverables:**
 - [ ] Business metrics collectors (ride, driver, payment, safety)
 - [ ] All histograms using appropriate bucket distributions
-- [ ] Tests verifying metric recording and label cardinality
+- [ ] Tests verifying metric recording and label cardinality (>80% coverage)
 
 ---
 
@@ -168,27 +159,27 @@
 - [ ] Implement baggage support for cross-service data
 - [ ] Write tests for header injection/extraction
 
-### 4.4 Package: `tracing` - Instrumentation Helpers
-- [ ] Implement `StartSpan(ctx, name, opts)` helper
-- [ ] Implement `SpanFromContext(ctx)` helper
-- [ ] Implement `AddSpanEvent(ctx, name, attrs)` helper
-- [ ] Implement `RecordError(ctx, err)` helper
-- [ ] Implement `SetSpanStatus(ctx, code, description)` helper
-- [ ] Write tests for all helpers
+### 4.4 Package: `tracing` - HTTP Middleware
+- [ ] Implement tracing middleware for Chi router
+- [ ] Auto-create spans for incoming requests
+- [ ] Extract context from incoming headers
+- [ ] Inject context into outgoing requests
+- [ ] Write tests for middleware
 
 **Deliverables:**
 - [ ] `tracing/` package with OpenTelemetry integration
 - [ ] W3C trace context propagation (HTTP and Kafka)
-- [ ] Tests for tracer setup, propagation, and helpers
+- [ ] Chi-compatible middleware
+- [ ] Tests for tracer setup, propagation, and middleware (>80% coverage)
 
 ---
 
 ## Phase 5: Health Checks (Week 5)
 
 ### 5.1 Package: `health` - Core Infrastructure
-- [ ] Define `Checker` interface with `Check(ctx) error` method
+- [ ] Define `Checker` interface compatible with `app.HealthChecker`
 - [ ] Define `CheckResult` struct (status, duration_ms, error)
-- [ ] Define `HealthReport` struct (status, checks map, timestamp)
+- [ ] Define `Report` struct (status, checks map, timestamp)
 - [ ] Implement `Status` type (healthy, unhealthy)
 - [ ] Implement `Manager` for registering and running checks
 - [ ] Write tests for manager and result aggregation
@@ -206,7 +197,7 @@
 - [ ] Implement background checking at configurable interval (default: 30s)
 - [ ] Implement failure threshold before marking unhealthy (default: 3)
 - [ ] Implement per-component timeout configuration (default: 5s)
-- [ ] Log all health check failures
+- [ ] Log all health check failures using `txova-go-core/logging`
 - [ ] Write tests for caching and background checks
 
 ### 5.4 Package: `health` - HTTP Handlers
@@ -216,58 +207,34 @@
 - [ ] Return 200 when healthy, 503 when unhealthy
 - [ ] Return 200 if only optional checks fail
 - [ ] Implement JSON response format matching PRD spec
-- [ ] Implement `app.HealthChecker` interface for core integration
 - [ ] Write tests for all endpoints
 
 **Deliverables:**
 - [ ] `health/` package with component checks and HTTP handlers
 - [ ] Caching and background check mechanism
 - [ ] Integration with txova-go-core app lifecycle
+- [ ] Tests for all components (>80% coverage)
 
 ---
 
-## Phase 6: Middleware & Integration (Week 6)
+## Phase 6: Integration & Quality Assurance (Week 6)
 
-### 6.1 Package: `middleware` - HTTP Middleware
-- [ ] Implement metrics middleware (records HTTP metrics)
-- [ ] Implement tracing middleware (creates spans, propagates context)
-- [ ] Implement combined middleware for convenience
-- [ ] Ensure middleware extracts request_id, user_id, correlation_id from context
-- [ ] Ensure middleware integrates with Chi router
-- [ ] Write tests for middleware chain
-
-### 6.2 Integration with txova-go-core
+### 6.1 Integration with txova-go-core
 - [ ] Implement `Observability` struct as central entry point
 - [ ] Implement `app.Initializer` interface for startup
 - [ ] Implement `app.Closer` interface for shutdown
 - [ ] Implement `app.HealthChecker` interface for health reporting
-- [ ] Implement `server.MetricsCollector` interface for request metrics
+- [ ] Implement `server.MetricsCollector` interface for HTTP metrics
 - [ ] Provide `Register(app *app.App, server *server.Server)` convenience function
 - [ ] Write integration tests with txova-go-core
 
-### 6.3 Configuration
-- [ ] Define `Config` struct for all observability settings
-- [ ] Support loading from txova-go-core config (ObservabilityConfig)
-- [ ] Implement environment variable overrides (TXOVA_OBSERVABILITY_*)
-- [ ] Implement validation for required settings
-- [ ] Write tests for configuration loading
-
-**Deliverables:**
-- [ ] `middleware/` package with Chi-compatible middleware
-- [ ] Full integration with txova-go-core lifecycle
-- [ ] Configuration management
-
----
-
-## Phase 7: Documentation & Quality Assurance (Week 7)
-
-### 7.1 Cross-Package Integration
+### 6.2 Cross-Package Integration
 - [ ] Verify all packages work together without circular dependencies
-- [ ] Ensure consistent error handling across all packages
+- [ ] Ensure consistent error handling using `txova-go-core/errors`
 - [ ] Validate context propagation through middleware chain
 - [ ] Test full request flow (metrics + tracing + health)
 
-### 7.2 Quality Assurance
+### 6.3 Quality Assurance
 - [ ] Run full test suite and verify >80% coverage
 - [ ] Run golangci-lint and fix all issues
 - [ ] Run `go vet` and address all warnings
@@ -276,15 +243,10 @@
 - [ ] Verify health check latency < 100ms
 - [ ] Verify trace sampling accuracy within 5%
 
-### 7.3 Documentation
+### 6.4 Documentation
 - [ ] Ensure all exported types and functions have godoc comments
-- [ ] Update README.md with installation and quick start
-- [ ] Create USAGE.md with comprehensive examples for each package
-- [ ] Document metric naming conventions and label guidelines
-- [ ] Document tracing span naming conventions
-- [ ] Document health check configuration options
 
-### 7.4 Release
+### 6.5 Release
 - [ ] Tag release as v1.0.0 (via CI/CD, not manual)
 - [ ] Push to GitHub
 - [ ] Verify module is accessible via `go get`
@@ -292,7 +254,6 @@
 **Deliverables:**
 - [ ] Complete, tested library
 - [ ] >80% test coverage verified
-- [ ] Comprehensive documentation
 - [ ] v1.0.0 release tagged and published (via CI/CD)
 
 ---
@@ -305,25 +266,21 @@
 | Metric Collection Overhead | <1% CPU | Not measured |
 | Trace Sampling Accuracy | Within 5% | Not measured |
 | Health Check Latency | <100ms | Not measured |
-| Linting Errors | 0 | Not run |
-| go vet Warnings | 0 | Not run |
+| Linting Errors | 0 | 0 |
+| go vet Warnings | 0 | 0 |
 
 ---
 
 ## Package Dependency Order
 
 ```
-errors (no internal deps)
+metrics (uses core/errors for error handling)
     ↓
-metrics (depends on errors)
+tracing (uses core/errors, core/context for request IDs)
     ↓
-tracing (depends on errors)
+health (uses core/errors, core/logging, implements core/app interfaces)
     ↓
-health (depends on errors, integrates with core)
-    ↓
-middleware (depends on metrics, tracing, core)
-    ↓
-root package (depends on all, provides convenience functions)
+root package (integrates all, provides convenience functions)
 ```
 
 ---
@@ -336,8 +293,7 @@ root package (depends on all, provides convenience functions)
 | `server` | Implement MetricsCollector interface |
 | `context` | Extract request_id, user_id, correlation_id for spans/metrics |
 | `logging` | Use Logger for observability component logging |
-| `errors` | Wrap errors with AppError where appropriate |
-| `config` | Extend ObservabilityConfig for detailed settings |
+| `errors` | Use AppError for all error handling |
 
 ---
 
@@ -350,7 +306,6 @@ root package (depends on all, provides convenience functions)
 | Health check timeouts under load | Implement caching, background checks |
 | Context propagation edge cases in Kafka | Comprehensive tests for header injection/extraction |
 | Metric collection overhead | Benchmark tests, optimize hot paths |
-| Circular dependency with core | Careful interface design, integration tests |
 
 ---
 
@@ -361,7 +316,7 @@ root package (depends on all, provides convenience functions)
 | HTTP latency (seconds) | 0.005, 0.01, 0.025, 0.05, 0.1, 0.25, 0.5, 1, 2.5, 5, 10 |
 | DB latency (seconds) | 0.001, 0.005, 0.01, 0.025, 0.05, 0.1, 0.25, 0.5, 1 |
 | Duration (seconds) | 60, 300, 600, 900, 1800, 3600 |
-| Fare amount (MZN centavos) | 5000, 10000, 25000, 50000, 100000, 250000, 500000, 1000000, 2500000 |
+| Fare amount (MZN) | 50, 100, 250, 500, 1000, 2500, 5000, 10000, 25000 |
 
 ---
 
