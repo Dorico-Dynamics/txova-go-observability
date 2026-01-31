@@ -1,185 +1,114 @@
 # txova-go-observability
 
-Observability library providing Prometheus metrics, OpenTelemetry tracing, and health check utilities for monitoring Txova services.
+Unified observability library providing Prometheus metrics, OpenTelemetry tracing, and health check utilities for Txova services.
 
 ## Overview
 
-`txova-go-observability` provides comprehensive observability capabilities for Txova services, including Prometheus metrics for monitoring, OpenTelemetry distributed tracing, and Kubernetes-compatible health checks.
+`txova-go-observability` provides comprehensive observability capabilities for Txova services through a single, cohesive API. It includes Prometheus metrics collection, OpenTelemetry distributed tracing, and Kubernetes-compatible health checks.
 
-**Module:** `github.com/txova/txova-go-observability`
+**Module:** `github.com/Dorico-Dynamics/txova-go-observability`
 
 ## Features
 
+- **Unified API** - Single entry point for all observability features
 - **Prometheus Metrics** - HTTP, database, Redis, Kafka, and business metrics
-- **OpenTelemetry Tracing** - Distributed tracing with context propagation
+- **OpenTelemetry Tracing** - Distributed tracing with W3C/B3 propagation
 - **Health Checks** - Liveness, readiness, and startup probes
-- **Alert Definitions** - Pre-configured alert rules
+- **txova-go-core Integration** - Implements `app.Initializer`, `app.Closer`, and `app.HealthChecker` interfaces
 
 ## Packages
 
 | Package | Description |
 |---------|-------------|
+| `observability` | Unified entry point combining all features |
 | `metrics` | Prometheus metric collectors |
-| `tracing` | OpenTelemetry tracer setup |
-| `health` | Health check endpoints |
-| `alerts` | Alert rule definitions |
+| `tracing` | OpenTelemetry tracer setup and middleware |
+| `health` | Health check manager and HTTP handlers |
 
 ## Installation
 
 ```bash
-go get github.com/txova/txova-go-observability
+go get github.com/Dorico-Dynamics/txova-go-observability
 ```
 
-## Usage
+## Quick Start
 
-### Prometheus Metrics
-
-```go
-import "github.com/txova/txova-go-observability/metrics"
-
-// Initialize metrics
-m := metrics.New(metrics.Config{
-    Namespace: "txova",
-    Subsystem: "ride_service",
-})
-
-// HTTP metrics (use as middleware)
-r.Use(m.HTTPMiddleware())
-
-// Record business metrics
-m.RidesRequested.WithLabelValues("standard", "maputo").Inc()
-m.RideCompleted.WithLabelValues("standard", "maputo").Inc()
-m.RideFare.WithLabelValues("standard").Observe(float64(fare.Amount()))
-m.DriversOnline.WithLabelValues("maputo", "standard").Set(float64(count))
-
-// Database metrics
-m.RecordQuery("select_user", duration)
-m.RecordQueryError("select_user", "timeout")
-
-// Cache metrics
-m.RecordCacheHit("user_profile")
-m.RecordCacheMiss("user_profile")
-```
-
-### Available Metrics
-
-**HTTP Metrics:**
-- `http_requests_total` - Total requests (method, path, status)
-- `http_request_duration_seconds` - Request latency histogram
-- `http_requests_in_flight` - Current active requests
-
-**Database Metrics:**
-- `db_connections_total` - Connection pool stats
-- `db_query_duration_seconds` - Query latency
-- `db_query_errors_total` - Query failures
-
-**Business Metrics:**
-- `rides_requested_total` - Rides requested (service_type, city)
-- `rides_completed_total` - Rides completed
-- `rides_cancelled_total` - Rides cancelled (cancelled_by, reason)
-- `drivers_online_total` - Online drivers (city, service_type)
-- `payments_total` - Payment attempts (method, status)
-
-### OpenTelemetry Tracing
+The recommended approach is to use the unified `Observability` struct:
 
 ```go
-import "github.com/txova/txova-go-observability/tracing"
+package main
 
-// Initialize tracer
-tracer, err := tracing.New(tracing.Config{
-    ServiceName: "ride-service",
-    Endpoint:    "otel-collector:4317",
-    SampleRate:  0.1, // 10% sampling
-})
-defer tracer.Shutdown(ctx)
+import (
+    "context"
+    "net/http"
 
-// Create span
-ctx, span := tracer.Start(ctx, "process-ride-request")
-defer span.End()
-
-// Add attributes
-span.SetAttributes(
-    attribute.String("ride.id", rideID.String()),
-    attribute.String("user.id", userID.String()),
+    "github.com/Dorico-Dynamics/txova-go-observability"
 )
 
-// Record errors
-if err != nil {
-    span.RecordError(err)
-    span.SetStatus(codes.Error, err.Error())
-}
-```
+func main() {
+    ctx := context.Background()
 
-### Trace Context Propagation
-
-```go
-import "github.com/txova/txova-go-observability/tracing"
-
-// HTTP middleware automatically propagates trace context
-r.Use(tracing.HTTPMiddleware(tracer))
-
-// For outgoing HTTP requests
-req, _ := http.NewRequestWithContext(ctx, "GET", url, nil)
-tracing.InjectHTTP(ctx, req) // Adds traceparent header
-
-// For Kafka messages
-tracing.InjectKafka(ctx, message) // Adds trace headers
-```
-
-### Health Checks
-
-```go
-import "github.com/txova/txova-go-observability/health"
-
-checker := health.New(health.Config{
-    Timeout:  5 * time.Second,
-    Interval: 30 * time.Second,
-})
-
-// Register checks
-checker.AddCheck("postgres", health.PostgresCheck(pool))
-checker.AddCheck("redis", health.RedisCheck(redisClient))
-checker.AddCheck("kafka", health.KafkaCheck(kafkaClient))
-
-// Mount endpoints
-r.Get("/health/live", checker.LivenessHandler())
-r.Get("/health/ready", checker.ReadinessHandler())
-r.Get("/health/startup", checker.StartupHandler())
-```
-
-### Health Response Format
-
-```json
-{
-  "status": "healthy",
-  "checks": {
-    "postgres": {
-      "status": "healthy",
-      "duration_ms": 2
-    },
-    "redis": {
-      "status": "healthy", 
-      "duration_ms": 1
+    // Create observability with configuration
+    obs, err := observability.New(ctx, &observability.Config{
+        MetricsEnabled: true,
+        TracingEnabled: true,
+        HealthEnabled:  true,
+        Tracing: tracing.Config{
+            ServiceName:    "ride-service",
+            ServiceVersion: "1.0.0",
+            Endpoint:       "otel-collector:4318",
+            SampleRate:     0.1,
+        },
+    })
+    if err != nil {
+        log.Fatal(err)
     }
-  },
-  "timestamp": "2024-01-15T10:30:00Z"
+    defer obs.Close(ctx)
+
+    // Start background health checks
+    obs.Initialize(ctx)
+
+    // Use HTTP middleware (adds tracing + metrics)
+    mux := http.NewServeMux()
+    handler := obs.HTTPMiddleware()(mux)
+
+    // Register health endpoints
+    obs.HealthHandler.RegisterRoutes(mux)
+
+    http.ListenAndServe(":8080", handler)
 }
 ```
 
-### Alert Rules
+## Detailed Usage
 
-**Critical Alerts (Page):**
-- `ServiceDown` - Service not responding for 2m
-- `HighErrorRate` - 5xx rate > 5% for 5m
-- `DatabaseDown` - Database unavailable for 1m
-- `KafkaLag` - Consumer lag > 10,000 for 5m
-- `PaymentFailures` - Payment failure rate > 10% for 5m
+See [usage.md](./usage.md) for comprehensive examples and best practices.
 
-**Warning Alerts (Notify):**
-- `HighLatency` - P99 latency > 5s for 10m
-- `LowCacheHit` - Cache hit rate < 50% for 30m
-- `HighCPU` - CPU > 80% for 15m
-- `LowDrivers` - Online drivers < 10 for 30m
+## Metric Collectors
+
+All collectors are created via the unified `Observability` struct or individually:
+
+| Collector | Description |
+|-----------|-------------|
+| `HTTPCollector` | HTTP request metrics |
+| `DBCollector` | Database query metrics |
+| `RedisCollector` | Redis command metrics |
+| `KafkaCollector` | Kafka producer/consumer metrics |
+| `RideCollector` | Ride business metrics |
+| `DriverCollector` | Driver business metrics |
+| `PaymentCollector` | Payment business metrics |
+| `SafetyCollector` | Safety incident metrics |
+
+## Health Checkers
+
+Built-in health checkers for common dependencies:
+
+| Checker | Description |
+|---------|-------------|
+| `PostgresChecker` | PostgreSQL database health |
+| `RedisChecker` | Redis connection health |
+| `KafkaChecker` | Kafka broker health |
+| `HTTPChecker` | External HTTP service health |
+| `FuncChecker` | Custom function-based checks |
 
 ## Histogram Buckets
 
@@ -187,28 +116,36 @@ r.Get("/health/startup", checker.StartupHandler())
 |-------------|---------|
 | HTTP latency | 0.005, 0.01, 0.025, 0.05, 0.1, 0.25, 0.5, 1, 2.5, 5, 10 |
 | DB latency | 0.001, 0.005, 0.01, 0.025, 0.05, 0.1, 0.25, 0.5, 1 |
-| Fare amount | 50, 100, 250, 500, 1000, 2500, 5000, 10000, 25000 |
+| Fare (MZN) | 50, 100, 250, 500, 1000, 2500, 5000, 10000, 25000 |
+| Distance (km) | 1, 2, 5, 10, 20, 50, 100, 200 |
 
 ## Dependencies
 
 **Internal:**
-- `txova-go-core`
+- `txova-go-core` (interfaces only)
 
 **External:**
-- `github.com/prometheus/client_golang` - Prometheus client
-- `go.opentelemetry.io/otel` - OpenTelemetry SDK
-- `go.opentelemetry.io/otel/exporters/otlp` - OTLP exporter
+- `github.com/prometheus/client_golang` v1.22+
+- `go.opentelemetry.io/otel` v1.35+
+- `go.opentelemetry.io/otel/exporters/otlp/otlptrace` v1.35+
 
 ## Development
 
 ### Requirements
 
-- Go 1.25+
+- Go 1.24+
+- golangci-lint v2.8+
 
 ### Testing
 
 ```bash
 go test ./...
+```
+
+### Linting
+
+```bash
+golangci-lint run
 ```
 
 ### Test Coverage Target

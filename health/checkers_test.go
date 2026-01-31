@@ -186,7 +186,8 @@ func TestHTTPChecker_Check_Unhealthy(t *testing.T) {
 func TestHTTPChecker_Check_ConnectionError(t *testing.T) {
 	t.Parallel()
 
-	checker := NewHTTPChecker("test-api", "http://localhost:99999", nil, true)
+	// Use a valid but unreachable address (non-routable IP)
+	checker := NewHTTPChecker("test-api", "http://10.255.255.1:12345", nil, true)
 	result := checker.Check(context.Background())
 
 	if result.Status != StatusUnhealthy {

@@ -76,7 +76,8 @@ func TestHandler_ReadyHandler_Healthy(t *testing.T) {
 func TestHandler_ReadyHandler_Unhealthy(t *testing.T) {
 	t.Parallel()
 
-	manager := NewManager(DefaultManagerConfig().WithCacheTTL(0))
+	// Use FailureThreshold(1) so first failure is immediately reported
+	manager := NewManager(DefaultManagerConfig().WithCacheTTL(0).WithFailureThreshold(1))
 	manager.Register(NewFuncChecker("failing", func(ctx context.Context) error {
 		return errors.New("check failed")
 	}, true))
@@ -123,7 +124,8 @@ func TestHandler_StartupHandler_Started(t *testing.T) {
 func TestHandler_StartupHandler_NotStarted(t *testing.T) {
 	t.Parallel()
 
-	manager := NewManager(DefaultManagerConfig().WithCacheTTL(0))
+	// Use FailureThreshold(1) so first failure is immediately reported
+	manager := NewManager(DefaultManagerConfig().WithCacheTTL(0).WithFailureThreshold(1))
 	manager.Register(NewFuncChecker("failing", func(ctx context.Context) error {
 		return errors.New("not ready")
 	}, true))
@@ -212,7 +214,8 @@ func TestHandler_ContentType(t *testing.T) {
 func TestHandler_ReadyHandler_Degraded(t *testing.T) {
 	t.Parallel()
 
-	manager := NewManager(DefaultManagerConfig().WithCacheTTL(0))
+	// Use FailureThreshold(1) so first failure is immediately reported
+	manager := NewManager(DefaultManagerConfig().WithCacheTTL(0).WithFailureThreshold(1))
 	manager.Register(NewFuncChecker("required", func(ctx context.Context) error {
 		return nil
 	}, true))

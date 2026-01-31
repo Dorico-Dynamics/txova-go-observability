@@ -176,18 +176,32 @@ func (m *Manager) runChecks(ctx context.Context) Report {
 		close(resultCh)
 	}()
 
-	// Collect results.
+	// Collect results and apply failure threshold.
 	for r := range resultCh {
-		results[r.name] = r.result
-
-		// Update failure counts.
+		// Update failure counts first.
 		m.mu.Lock()
 		if r.result.Status != StatusHealthy {
 			m.failureCounts[r.name]++
 		} else {
 			m.failureCounts[r.name] = 0
 		}
+		failureCount := m.failureCounts[r.name]
 		m.mu.Unlock()
+
+		// Apply failure threshold: only report as unhealthy if consecutive
+		// failures have reached the threshold.
+		effectiveResult := r.result
+		if r.result.Status == StatusUnhealthy && failureCount < m.config.FailureThreshold {
+			// Not enough consecutive failures yet, report as healthy.
+			effectiveResult = Result{
+				Status:     StatusHealthy,
+				DurationMS: r.result.DurationMS,
+				Timestamp:  r.result.Timestamp,
+				Details:    r.result.Details,
+			}
+		}
+
+		results[r.name] = effectiveResult
 	}
 
 	report := NewReport(results, requiredChecks)

@@ -240,7 +240,7 @@ func TestObservability_HealthCheck_Unhealthy(t *testing.T) {
 
 	ctx := context.Background()
 	cfg := &Config{
-		Health:         health.DefaultManagerConfig().WithCacheTTL(0),
+		Health:         health.DefaultManagerConfig().WithCacheTTL(0).WithFailureThreshold(1),
 		MetricsEnabled: false,
 		TracingEnabled: false,
 		HealthEnabled:  true,
@@ -491,11 +491,29 @@ func TestNew_NilConfig(t *testing.T) {
 
 	ctx := context.Background()
 	obs, err := New(ctx, nil)
-	// With nil config, it uses DefaultConfig which has TracingEnabled=true
-	// but no valid service name, so this should fail
-	if err == nil && obs != nil {
-		obs.Close(ctx)
+
+	// With nil config, New() should succeed using DefaultConfig.
+	// DefaultConfig has TracingEnabled=true with ServiceName="unknown-service" which is valid.
+	if err != nil {
+		t.Fatalf("New(ctx, nil) error = %v, want nil", err)
 	}
-	// The default tracing config has ServiceName="unknown-service" which is valid
-	// so it should not error. Let's just check it doesn't panic.
+	if obs == nil {
+		t.Fatal("New(ctx, nil) returned nil Observability, want non-nil")
+	}
+	defer obs.Close(ctx)
+
+	// Verify default configuration was applied.
+	defaultCfg := DefaultConfig()
+	if obs.config.TracingEnabled != defaultCfg.TracingEnabled {
+		t.Errorf("TracingEnabled = %v, want %v", obs.config.TracingEnabled, defaultCfg.TracingEnabled)
+	}
+	if obs.config.MetricsEnabled != defaultCfg.MetricsEnabled {
+		t.Errorf("MetricsEnabled = %v, want %v", obs.config.MetricsEnabled, defaultCfg.MetricsEnabled)
+	}
+	if obs.config.HealthEnabled != defaultCfg.HealthEnabled {
+		t.Errorf("HealthEnabled = %v, want %v", obs.config.HealthEnabled, defaultCfg.HealthEnabled)
+	}
+	if obs.config.Tracing.ServiceName != defaultCfg.Tracing.ServiceName {
+		t.Errorf("Tracing.ServiceName = %v, want %v", obs.config.Tracing.ServiceName, defaultCfg.Tracing.ServiceName)
+	}
 }

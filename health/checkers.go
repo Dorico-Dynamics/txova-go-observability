@@ -202,7 +202,13 @@ type FuncChecker struct {
 }
 
 // NewFuncChecker creates a new function-based health checker.
+// If checkFn is nil, a safe default function that returns an error is used.
 func NewFuncChecker(name string, checkFn func(ctx context.Context) error, required bool) *FuncChecker {
+	if checkFn == nil {
+		checkFn = func(ctx context.Context) error {
+			return fmt.Errorf("nil check function for %s", name)
+		}
+	}
 	return &FuncChecker{
 		name:     name,
 		checkFn:  checkFn,

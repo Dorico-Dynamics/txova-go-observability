@@ -125,12 +125,20 @@ func (c *HTTPCollector) RecordPanic(method, path string) {
 }
 
 // RecordRequestSize records the size of an HTTP request body.
+// Negative sizes (e.g., -1 for unknown ContentLength) are ignored.
 func (c *HTTPCollector) RecordRequestSize(method, path string, size int64) {
+	if size < 0 {
+		return
+	}
 	c.requestSize.WithLabelValues(method, path).Observe(float64(size))
 }
 
 // RecordResponseSize records the size of an HTTP response body.
+// Negative sizes (e.g., -1 for unknown ContentLength) are ignored.
 func (c *HTTPCollector) RecordResponseSize(method, path string, size int64) {
+	if size < 0 {
+		return
+	}
 	c.responseSize.WithLabelValues(method, path).Observe(float64(size))
 }
 

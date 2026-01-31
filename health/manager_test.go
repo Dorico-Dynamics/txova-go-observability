@@ -101,7 +101,8 @@ func TestManager_Check_AllHealthy(t *testing.T) {
 func TestManager_Check_OneUnhealthy(t *testing.T) {
 	t.Parallel()
 
-	manager := NewManager(DefaultManagerConfig())
+	// Use FailureThreshold(1) so first failure is immediately reported
+	manager := NewManager(DefaultManagerConfig().WithFailureThreshold(1))
 	manager.Register(NewFuncChecker("healthy", func(ctx context.Context) error {
 		return nil
 	}, true))
@@ -164,7 +165,8 @@ func TestManager_IsReady(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 
-			manager := NewManager(DefaultManagerConfig().WithCacheTTL(0))
+			// Use FailureThreshold(1) so first failure is immediately reported
+			manager := NewManager(DefaultManagerConfig().WithCacheTTL(0).WithFailureThreshold(1))
 			manager.Register(NewFuncChecker("test", func(ctx context.Context) error {
 				return tt.checkErr
 			}, true))
