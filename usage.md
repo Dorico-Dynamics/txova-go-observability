@@ -280,9 +280,12 @@ ctx := tracing.Extract(r.Context(), r.Header)
 // Inject trace context into outgoing HTTP request
 tracing.Inject(ctx, outgoingReq.Header)
 
-// Helper for Kafka headers (convert to/from map)
-kafkaHeaders := tracing.HeadersToMap(ctx)
-ctx = tracing.ExtractFromMap(ctx, kafkaHeaders)
+// For Kafka messages - inject trace context into headers map
+kafkaHeaders := make(map[string]string)
+tracing.InjectToKafka(ctx, kafkaHeaders)
+
+// Extract trace context from Kafka headers
+ctx = tracing.ExtractFromKafka(ctx, kafkaHeaders)
 ```
 
 ### Utility Functions

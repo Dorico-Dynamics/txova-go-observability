@@ -135,7 +135,7 @@ Built-in health checkers for common dependencies:
 
 ### Requirements
 
-- Go 1.24+
+- Go 1.25+
 - golangci-lint v2.8+
 
 ### Testing
