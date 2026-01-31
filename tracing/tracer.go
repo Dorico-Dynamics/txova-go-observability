@@ -2,6 +2,7 @@ package tracing
 
 import (
 	"context"
+	"errors"
 	"fmt"
 
 	"go.opentelemetry.io/otel"
@@ -22,20 +23,49 @@ type Tracer struct {
 }
 
 // New creates a new Tracer with the given configuration.
-func New(ctx context.Context, cfg Config) (*Tracer, error) {
+func New(ctx context.Context, cfg Config) (*Tracer, error) { //nolint:gocritic // cfg passed by value for API simplicity
 	if err := cfg.Validate(); err != nil {
 		return nil, fmt.Errorf("invalid config: %w", err)
 	}
 
-	// Set defaults for empty values.
+	applyConfigDefaults(&cfg)
+
+	res, err := createResource(&cfg)
+	if err != nil {
+		return nil, err
+	}
+
+	exporter, err := createExporter(ctx, &cfg)
+	if err != nil && !errors.Is(err, errNoExporter) {
+		return nil, err
+	}
+	// If errNoExporter, exporter is nil which is handled by createProvider
+
+	sampler := createSampler(cfg.SampleRate)
+	provider := createProvider(res, sampler, exporter)
+
+	otel.SetTracerProvider(provider)
+	otel.SetTextMapPropagator(createPropagator())
+
+	return &Tracer{
+		provider: provider,
+		tracer:   provider.Tracer(cfg.ServiceName),
+		config:   cfg,
+	}, nil
+}
+
+// applyConfigDefaults sets default values for empty config fields.
+func applyConfigDefaults(cfg *Config) {
 	if cfg.Propagation == "" {
 		cfg.Propagation = PropagationW3C
 	}
 	if cfg.Exporter == "" {
 		cfg.Exporter = ExporterOTLPHTTP
 	}
+}
 
-	// Create resource with service information.
+// createResource creates an OpenTelemetry resource with service information.
+func createResource(cfg *Config) (*resource.Resource, error) {
 	res, err := resource.Merge(
 		resource.Default(),
 		resource.NewWithAttributes(
@@ -47,60 +77,77 @@ func New(ctx context.Context, cfg Config) (*Tracer, error) {
 	if err != nil {
 		return nil, fmt.Errorf("failed to create resource: %w", err)
 	}
+	return res, nil
+}
 
-	// Create exporter.
-	var exporter sdktrace.SpanExporter
+// errNoExporter is a sentinel value indicating no exporter is configured.
+// This is not an error condition, just indicates ExporterNone was selected.
+var errNoExporter = fmt.Errorf("no exporter configured")
+
+// createExporter creates a span exporter based on configuration.
+func createExporter(ctx context.Context, cfg *Config) (sdktrace.SpanExporter, error) {
 	switch cfg.Exporter {
 	case ExporterOTLPHTTP:
-		opts := []otlptracehttp.Option{
-			otlptracehttp.WithEndpoint(cfg.Endpoint),
-		}
-		if cfg.Insecure {
-			opts = append(opts, otlptracehttp.WithInsecure())
-		}
-		if len(cfg.Headers) > 0 {
-			opts = append(opts, otlptracehttp.WithHeaders(cfg.Headers))
-		}
-		exporter, err = otlptracehttp.New(ctx, opts...)
-		if err != nil {
-			return nil, fmt.Errorf("failed to create OTLP HTTP exporter: %w", err)
-		}
-
+		return createHTTPExporter(ctx, cfg)
 	case ExporterOTLPGRPC:
-		opts := []otlptracegrpc.Option{
-			otlptracegrpc.WithEndpoint(cfg.Endpoint),
-		}
-		if cfg.Insecure {
-			opts = append(opts, otlptracegrpc.WithInsecure())
-		}
-		if len(cfg.Headers) > 0 {
-			opts = append(opts, otlptracegrpc.WithHeaders(cfg.Headers))
-		}
-		exporter, err = otlptracegrpc.New(ctx, opts...)
-		if err != nil {
-			return nil, fmt.Errorf("failed to create OTLP gRPC exporter: %w", err)
-		}
-
+		return createGRPCExporter(ctx, cfg)
 	case ExporterNone:
-		// No exporter, useful for testing.
-		exporter = nil
-
+		return nil, errNoExporter
 	default:
 		return nil, fmt.Errorf("unsupported exporter type: %s", cfg.Exporter)
 	}
+}
 
-	// Create sampler based on sample rate.
-	var sampler sdktrace.Sampler
-	switch {
-	case cfg.SampleRate <= 0:
-		sampler = sdktrace.NeverSample()
-	case cfg.SampleRate >= 1:
-		sampler = sdktrace.AlwaysSample()
-	default:
-		sampler = sdktrace.TraceIDRatioBased(cfg.SampleRate)
+// createHTTPExporter creates an OTLP HTTP exporter.
+func createHTTPExporter(ctx context.Context, cfg *Config) (sdktrace.SpanExporter, error) {
+	opts := []otlptracehttp.Option{
+		otlptracehttp.WithEndpoint(cfg.Endpoint),
 	}
+	if cfg.Insecure {
+		opts = append(opts, otlptracehttp.WithInsecure())
+	}
+	if len(cfg.Headers) > 0 {
+		opts = append(opts, otlptracehttp.WithHeaders(cfg.Headers))
+	}
+	exporter, err := otlptracehttp.New(ctx, opts...)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create OTLP HTTP exporter: %w", err)
+	}
+	return exporter, nil
+}
 
-	// Create tracer provider options.
+// createGRPCExporter creates an OTLP gRPC exporter.
+func createGRPCExporter(ctx context.Context, cfg *Config) (sdktrace.SpanExporter, error) {
+	opts := []otlptracegrpc.Option{
+		otlptracegrpc.WithEndpoint(cfg.Endpoint),
+	}
+	if cfg.Insecure {
+		opts = append(opts, otlptracegrpc.WithInsecure())
+	}
+	if len(cfg.Headers) > 0 {
+		opts = append(opts, otlptracegrpc.WithHeaders(cfg.Headers))
+	}
+	exporter, err := otlptracegrpc.New(ctx, opts...)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create OTLP gRPC exporter: %w", err)
+	}
+	return exporter, nil
+}
+
+// createSampler creates a sampler based on sample rate.
+func createSampler(sampleRate float64) sdktrace.Sampler {
+	switch {
+	case sampleRate <= 0:
+		return sdktrace.NeverSample()
+	case sampleRate >= 1:
+		return sdktrace.AlwaysSample()
+	default:
+		return sdktrace.TraceIDRatioBased(sampleRate)
+	}
+}
+
+// createProvider creates a tracer provider with the given configuration.
+func createProvider(res *resource.Resource, sampler sdktrace.Sampler, exporter sdktrace.SpanExporter) *sdktrace.TracerProvider {
 	providerOpts := []sdktrace.TracerProviderOption{
 		sdktrace.WithResource(res),
 		sdktrace.WithSampler(sampler),
@@ -110,40 +157,15 @@ func New(ctx context.Context, cfg Config) (*Tracer, error) {
 		providerOpts = append(providerOpts, sdktrace.WithBatcher(exporter))
 	}
 
-	// Create tracer provider.
-	provider := sdktrace.NewTracerProvider(providerOpts...)
+	return sdktrace.NewTracerProvider(providerOpts...)
+}
 
-	// Set global tracer provider.
-	otel.SetTracerProvider(provider)
-
-	// Set global propagator based on configuration.
-	var propagator propagation.TextMapPropagator
-	switch cfg.Propagation {
-	case PropagationW3C:
-		propagator = propagation.NewCompositeTextMapPropagator(
-			propagation.TraceContext{},
-			propagation.Baggage{},
-		)
-	case PropagationB3:
-		// B3 propagation would require additional import.
-		// For now, default to W3C.
-		propagator = propagation.NewCompositeTextMapPropagator(
-			propagation.TraceContext{},
-			propagation.Baggage{},
-		)
-	default:
-		propagator = propagation.NewCompositeTextMapPropagator(
-			propagation.TraceContext{},
-			propagation.Baggage{},
-		)
-	}
-	otel.SetTextMapPropagator(propagator)
-
-	return &Tracer{
-		provider: provider,
-		tracer:   provider.Tracer(cfg.ServiceName),
-		config:   cfg,
-	}, nil
+// createPropagator creates a W3C trace context propagator.
+func createPropagator() propagation.TextMapPropagator {
+	return propagation.NewCompositeTextMapPropagator(
+		propagation.TraceContext{},
+		propagation.Baggage{},
+	)
 }
 
 // Tracer returns the underlying OpenTelemetry tracer.

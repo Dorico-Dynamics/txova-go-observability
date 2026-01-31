@@ -81,9 +81,13 @@ type Observability struct {
 }
 
 // New creates a new Observability instance with the given configuration.
-func New(ctx context.Context, cfg Config) (*Observability, error) {
+func New(ctx context.Context, cfg *Config) (*Observability, error) {
+	if cfg == nil {
+		defaultCfg := DefaultConfig()
+		cfg = &defaultCfg
+	}
 	obs := &Observability{
-		config: cfg,
+		config: *cfg,
 	}
 
 	// Initialize tracing.
@@ -151,7 +155,7 @@ func New(ctx context.Context, cfg Config) (*Observability, error) {
 
 // Initialize starts all observability subsystems.
 // This implements the app.Initializer interface from txova-go-core.
-func (o *Observability) Initialize(ctx context.Context) error {
+func (o *Observability) Initialize(ctx context.Context) error { //nolint:unparam // error kept for interface compatibility
 	if o.HealthManager != nil && o.config.HealthEnabled {
 		o.HealthManager.StartBackground(ctx)
 	}

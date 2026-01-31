@@ -4,6 +4,8 @@
 package metrics
 
 import (
+	"errors"
+
 	"github.com/prometheus/client_golang/prometheus"
 )
 
@@ -49,13 +51,29 @@ func (c Config) WithRegistry(registry prometheus.Registerer) Config {
 	return c
 }
 
-// Validate checks that the configuration is valid.
-func (c Config) Validate() error {
+// Validate checks that the configuration is valid and returns a validated copy.
+func (c Config) Validate() (Config, error) { //nolint:unparam // error kept for API consistency and future validation
 	if c.Namespace == "" {
 		c.Namespace = DefaultNamespace
 	}
 	if c.Registry == nil {
 		c.Registry = prometheus.DefaultRegisterer
 	}
-	return nil
+	return c, nil
+}
+
+// registerCollector registers a collector with the registry, handling already registered errors.
+// If the collector is already registered, it returns the existing collector.
+func registerCollector[T prometheus.Collector](registry prometheus.Registerer, collector T) (T, error) {
+	if err := registry.Register(collector); err != nil {
+		var are prometheus.AlreadyRegisteredError
+		if errors.As(err, &are) {
+			if existing, ok := are.ExistingCollector.(T); ok {
+				return existing, nil
+			}
+		}
+		var zero T
+		return zero, err
+	}
+	return collector, nil
 }

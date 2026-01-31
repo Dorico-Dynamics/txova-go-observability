@@ -14,79 +14,62 @@ type DriverCollector struct {
 
 // NewDriverCollector creates a new DriverCollector with the given configuration.
 func NewDriverCollector(cfg Config) (*DriverCollector, error) {
-	if err := cfg.Validate(); err != nil {
+	cfg, err := cfg.Validate()
+	if err != nil {
 		return nil, err
 	}
 
-	c := &DriverCollector{
-		onlineTotal: prometheus.NewGaugeVec(
-			prometheus.GaugeOpts{
-				Namespace: cfg.Namespace,
-				Subsystem: cfg.Subsystem,
-				Name:      "drivers_online_total",
-				Help:      "Current number of online drivers.",
-			},
-			[]string{"city", "service_type"},
-		),
-		acceptanceRate: prometheus.NewGaugeVec(
-			prometheus.GaugeOpts{
-				Namespace: cfg.Namespace,
-				Subsystem: cfg.Subsystem,
-				Name:      "driver_acceptance_rate",
-				Help:      "Driver acceptance rate (0.0-1.0).",
-			},
-			[]string{"driver_id"},
-		),
-		ratingAverage: prometheus.NewGauge(
-			prometheus.GaugeOpts{
-				Namespace: cfg.Namespace,
-				Subsystem: cfg.Subsystem,
-				Name:      "driver_rating_average",
-				Help:      "Average driver rating across all drivers.",
-			},
-		),
-		earnings: prometheus.NewCounterVec(
-			prometheus.CounterOpts{
-				Namespace: cfg.Namespace,
-				Subsystem: cfg.Subsystem,
-				Name:      "driver_earnings_mzn",
-				Help:      "Total driver earnings in MZN (smallest currency unit).",
-			},
-			[]string{"driver_id"},
-		),
+	c := &DriverCollector{}
+
+	c.onlineTotal, err = registerCollector(cfg.Registry, prometheus.NewGaugeVec(
+		prometheus.GaugeOpts{
+			Namespace: cfg.Namespace,
+			Subsystem: cfg.Subsystem,
+			Name:      "drivers_online_total",
+			Help:      "Current number of online drivers.",
+		},
+		[]string{"city", "service_type"},
+	))
+	if err != nil {
+		return nil, err
 	}
 
-	// Register all metrics with the registry.
-	collectors := []prometheus.Collector{
-		c.onlineTotal,
-		c.acceptanceRate,
-		c.ratingAverage,
-		c.earnings,
+	c.acceptanceRate, err = registerCollector(cfg.Registry, prometheus.NewGaugeVec(
+		prometheus.GaugeOpts{
+			Namespace: cfg.Namespace,
+			Subsystem: cfg.Subsystem,
+			Name:      "driver_acceptance_rate",
+			Help:      "Driver acceptance rate (0.0-1.0).",
+		},
+		[]string{"driver_id"},
+	))
+	if err != nil {
+		return nil, err
 	}
 
-	for _, collector := range collectors {
-		if err := cfg.Registry.Register(collector); err != nil {
-			if are, ok := err.(prometheus.AlreadyRegisteredError); ok {
-				switch existing := are.ExistingCollector.(type) {
-				case *prometheus.GaugeVec:
-					if collector == c.onlineTotal {
-						c.onlineTotal = existing
-					} else if collector == c.acceptanceRate {
-						c.acceptanceRate = existing
-					}
-				case prometheus.Gauge:
-					if collector == c.ratingAverage {
-						c.ratingAverage = existing
-					}
-				case *prometheus.CounterVec:
-					if collector == c.earnings {
-						c.earnings = existing
-					}
-				}
-			} else {
-				return nil, err
-			}
-		}
+	c.ratingAverage, err = registerCollector(cfg.Registry, prometheus.NewGauge(
+		prometheus.GaugeOpts{
+			Namespace: cfg.Namespace,
+			Subsystem: cfg.Subsystem,
+			Name:      "driver_rating_average",
+			Help:      "Average driver rating across all drivers.",
+		},
+	))
+	if err != nil {
+		return nil, err
+	}
+
+	c.earnings, err = registerCollector(cfg.Registry, prometheus.NewCounterVec(
+		prometheus.CounterOpts{
+			Namespace: cfg.Namespace,
+			Subsystem: cfg.Subsystem,
+			Name:      "driver_earnings_mzn",
+			Help:      "Total driver earnings in MZN (smallest currency unit).",
+		},
+		[]string{"driver_id"},
+	))
+	if err != nil {
+		return nil, err
 	}
 
 	return c, nil

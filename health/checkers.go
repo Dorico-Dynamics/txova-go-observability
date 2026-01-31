@@ -168,7 +168,7 @@ func (c *HTTPChecker) Name() string {
 func (c *HTTPChecker) Check(ctx context.Context) Result {
 	start := time.Now()
 
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, c.url, nil)
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, c.url, http.NoBody)
 	if err != nil {
 		return NewUnhealthyResult(time.Since(start), err)
 	}

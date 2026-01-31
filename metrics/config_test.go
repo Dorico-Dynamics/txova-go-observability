@@ -77,7 +77,7 @@ func TestConfig_Validate(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
-			err := tt.cfg.Validate()
+			_, err := tt.cfg.Validate()
 			if err != nil {
 				t.Errorf("Validate() error = %v, want nil", err)
 			}

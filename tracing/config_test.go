@@ -38,7 +38,8 @@ func TestDefaultConfig(t *testing.T) {
 func TestConfig_WithServiceName(t *testing.T) {
 	t.Parallel()
 
-	cfg := DefaultConfig().WithServiceName("ride-service")
+	cfg := DefaultConfig()
+	cfg.WithServiceName("ride-service")
 
 	if cfg.ServiceName != "ride-service" {
 		t.Errorf("ServiceName = %v, want ride-service", cfg.ServiceName)
@@ -48,7 +49,8 @@ func TestConfig_WithServiceName(t *testing.T) {
 func TestConfig_WithServiceVersion(t *testing.T) {
 	t.Parallel()
 
-	cfg := DefaultConfig().WithServiceVersion("v1.2.3")
+	cfg := DefaultConfig()
+	cfg.WithServiceVersion("v1.2.3")
 
 	if cfg.ServiceVersion != "v1.2.3" {
 		t.Errorf("ServiceVersion = %v, want v1.2.3", cfg.ServiceVersion)
@@ -58,7 +60,8 @@ func TestConfig_WithServiceVersion(t *testing.T) {
 func TestConfig_WithEndpoint(t *testing.T) {
 	t.Parallel()
 
-	cfg := DefaultConfig().WithEndpoint("otel-collector:4317")
+	cfg := DefaultConfig()
+	cfg.WithEndpoint("otel-collector:4317")
 
 	if cfg.Endpoint != "otel-collector:4317" {
 		t.Errorf("Endpoint = %v, want otel-collector:4317", cfg.Endpoint)
@@ -68,7 +71,8 @@ func TestConfig_WithEndpoint(t *testing.T) {
 func TestConfig_WithSampleRate(t *testing.T) {
 	t.Parallel()
 
-	cfg := DefaultConfig().WithSampleRate(0.5)
+	cfg := DefaultConfig()
+	cfg.WithSampleRate(0.5)
 
 	if cfg.SampleRate != 0.5 {
 		t.Errorf("SampleRate = %v, want 0.5", cfg.SampleRate)
@@ -78,7 +82,8 @@ func TestConfig_WithSampleRate(t *testing.T) {
 func TestConfig_WithPropagation(t *testing.T) {
 	t.Parallel()
 
-	cfg := DefaultConfig().WithPropagation(PropagationB3)
+	cfg := DefaultConfig()
+	cfg.WithPropagation(PropagationB3)
 
 	if cfg.Propagation != PropagationB3 {
 		t.Errorf("Propagation = %v, want %v", cfg.Propagation, PropagationB3)
@@ -88,7 +93,8 @@ func TestConfig_WithPropagation(t *testing.T) {
 func TestConfig_WithExporter(t *testing.T) {
 	t.Parallel()
 
-	cfg := DefaultConfig().WithExporter(ExporterOTLPGRPC)
+	cfg := DefaultConfig()
+	cfg.WithExporter(ExporterOTLPGRPC)
 
 	if cfg.Exporter != ExporterOTLPGRPC {
 		t.Errorf("Exporter = %v, want %v", cfg.Exporter, ExporterOTLPGRPC)
@@ -98,7 +104,8 @@ func TestConfig_WithExporter(t *testing.T) {
 func TestConfig_WithInsecure(t *testing.T) {
 	t.Parallel()
 
-	cfg := DefaultConfig().WithInsecure(false)
+	cfg := DefaultConfig()
+	cfg.WithInsecure(false)
 
 	if cfg.Insecure {
 		t.Error("Insecure should be false")
@@ -112,7 +119,8 @@ func TestConfig_WithHeaders(t *testing.T) {
 		"Authorization": "Bearer token",
 		"X-Custom":      "value",
 	}
-	cfg := DefaultConfig().WithHeaders(headers)
+	cfg := DefaultConfig()
+	cfg.WithHeaders(headers)
 
 	if len(cfg.Headers) != 2 {
 		t.Errorf("Headers length = %d, want 2", len(cfg.Headers))
@@ -125,8 +133,8 @@ func TestConfig_WithHeaders(t *testing.T) {
 func TestConfig_Chaining(t *testing.T) {
 	t.Parallel()
 
-	cfg := DefaultConfig().
-		WithServiceName("test-service").
+	cfg := DefaultConfig()
+	cfg.WithServiceName("test-service").
 		WithServiceVersion("v1.0.0").
 		WithEndpoint("collector:4317").
 		WithSampleRate(0.8).
@@ -157,7 +165,9 @@ func TestConfig_Validate_Valid(t *testing.T) {
 	}{
 		{
 			name: "default config with service name",
-			cfg:  DefaultConfig().WithServiceName("test"),
+			cfg: Config{
+				ServiceName: "test",
+			},
 		},
 		{
 			name: "full config",
@@ -172,11 +182,17 @@ func TestConfig_Validate_Valid(t *testing.T) {
 		},
 		{
 			name: "sample rate 0",
-			cfg:  DefaultConfig().WithServiceName("test").WithSampleRate(0),
+			cfg: Config{
+				ServiceName: "test",
+				SampleRate:  0,
+			},
 		},
 		{
 			name: "sample rate 1",
-			cfg:  DefaultConfig().WithServiceName("test").WithSampleRate(1),
+			cfg: Config{
+				ServiceName: "test",
+				SampleRate:  1,
+			},
 		},
 		{
 			name: "empty propagation defaults",
@@ -255,7 +271,7 @@ func TestConfig_Validate_Invalid(t *testing.T) {
 }
 
 func contains(s, substr string) bool {
-	return len(s) >= len(substr) && (s == substr || len(s) > 0 && containsAt(s, substr, 0))
+	return len(s) >= len(substr) && (s == substr || s != "" && containsAt(s, substr, 0))
 }
 
 func containsAt(s, substr string, start int) bool {

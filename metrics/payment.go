@@ -16,80 +16,65 @@ type PaymentCollector struct {
 
 // NewPaymentCollector creates a new PaymentCollector with the given configuration.
 func NewPaymentCollector(cfg Config) (*PaymentCollector, error) {
-	if err := cfg.Validate(); err != nil {
+	cfg, err := cfg.Validate()
+	if err != nil {
 		return nil, err
 	}
 
-	c := &PaymentCollector{
-		paymentsTotal: prometheus.NewCounterVec(
-			prometheus.CounterOpts{
-				Namespace: cfg.Namespace,
-				Subsystem: cfg.Subsystem,
-				Name:      "payments_total",
-				Help:      "Total number of payment attempts.",
-			},
-			[]string{"method", "status"},
-		),
-		paymentAmount: prometheus.NewHistogramVec(
-			prometheus.HistogramOpts{
-				Namespace: cfg.Namespace,
-				Subsystem: cfg.Subsystem,
-				Name:      "payment_amount_mzn",
-				Help:      "Payment amounts in MZN (smallest currency unit).",
-				Buckets:   PaymentAmountBuckets,
-			},
-			[]string{"method"},
-		),
-		processingTime: prometheus.NewHistogramVec(
-			prometheus.HistogramOpts{
-				Namespace: cfg.Namespace,
-				Subsystem: cfg.Subsystem,
-				Name:      "payment_processing_seconds",
-				Help:      "Payment processing time in seconds.",
-				Buckets:   HTTPLatencyBuckets,
-			},
-			[]string{"method"},
-		),
-		refundsTotal: prometheus.NewCounterVec(
-			prometheus.CounterOpts{
-				Namespace: cfg.Namespace,
-				Subsystem: cfg.Subsystem,
-				Name:      "refunds_total",
-				Help:      "Total number of refunds issued.",
-			},
-			[]string{"reason"},
-		),
+	c := &PaymentCollector{}
+
+	c.paymentsTotal, err = registerCollector(cfg.Registry, prometheus.NewCounterVec(
+		prometheus.CounterOpts{
+			Namespace: cfg.Namespace,
+			Subsystem: cfg.Subsystem,
+			Name:      "payments_total",
+			Help:      "Total number of payment attempts.",
+		},
+		[]string{"method", "status"},
+	))
+	if err != nil {
+		return nil, err
 	}
 
-	// Register all metrics with the registry.
-	collectors := []prometheus.Collector{
-		c.paymentsTotal,
-		c.paymentAmount,
-		c.processingTime,
-		c.refundsTotal,
+	c.paymentAmount, err = registerCollector(cfg.Registry, prometheus.NewHistogramVec(
+		prometheus.HistogramOpts{
+			Namespace: cfg.Namespace,
+			Subsystem: cfg.Subsystem,
+			Name:      "payment_amount_mzn",
+			Help:      "Payment amounts in MZN (smallest currency unit).",
+			Buckets:   PaymentAmountBuckets,
+		},
+		[]string{"method"},
+	))
+	if err != nil {
+		return nil, err
 	}
 
-	for _, collector := range collectors {
-		if err := cfg.Registry.Register(collector); err != nil {
-			if are, ok := err.(prometheus.AlreadyRegisteredError); ok {
-				switch existing := are.ExistingCollector.(type) {
-				case *prometheus.CounterVec:
-					if collector == c.paymentsTotal {
-						c.paymentsTotal = existing
-					} else if collector == c.refundsTotal {
-						c.refundsTotal = existing
-					}
-				case *prometheus.HistogramVec:
-					if collector == c.paymentAmount {
-						c.paymentAmount = existing
-					} else if collector == c.processingTime {
-						c.processingTime = existing
-					}
-				}
-			} else {
-				return nil, err
-			}
-		}
+	c.processingTime, err = registerCollector(cfg.Registry, prometheus.NewHistogramVec(
+		prometheus.HistogramOpts{
+			Namespace: cfg.Namespace,
+			Subsystem: cfg.Subsystem,
+			Name:      "payment_processing_seconds",
+			Help:      "Payment processing time in seconds.",
+			Buckets:   HTTPLatencyBuckets,
+		},
+		[]string{"method"},
+	))
+	if err != nil {
+		return nil, err
+	}
+
+	c.refundsTotal, err = registerCollector(cfg.Registry, prometheus.NewCounterVec(
+		prometheus.CounterOpts{
+			Namespace: cfg.Namespace,
+			Subsystem: cfg.Subsystem,
+			Name:      "refunds_total",
+			Help:      "Total number of refunds issued.",
+		},
+		[]string{"reason"},
+	))
+	if err != nil {
+		return nil, err
 	}
 
 	return c, nil

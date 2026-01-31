@@ -19,118 +19,106 @@ type RideCollector struct {
 
 // NewRideCollector creates a new RideCollector with the given configuration.
 func NewRideCollector(cfg Config) (*RideCollector, error) {
-	if err := cfg.Validate(); err != nil {
+	cfg, err := cfg.Validate()
+	if err != nil {
 		return nil, err
 	}
 
-	c := &RideCollector{
-		requestedTotal: prometheus.NewCounterVec(
-			prometheus.CounterOpts{
-				Namespace: cfg.Namespace,
-				Subsystem: cfg.Subsystem,
-				Name:      "rides_requested_total",
-				Help:      "Total number of ride requests.",
-			},
-			[]string{"service_type", "city"},
-		),
-		completedTotal: prometheus.NewCounterVec(
-			prometheus.CounterOpts{
-				Namespace: cfg.Namespace,
-				Subsystem: cfg.Subsystem,
-				Name:      "rides_completed_total",
-				Help:      "Total number of completed rides.",
-			},
-			[]string{"service_type", "city"},
-		),
-		cancelledTotal: prometheus.NewCounterVec(
-			prometheus.CounterOpts{
-				Namespace: cfg.Namespace,
-				Subsystem: cfg.Subsystem,
-				Name:      "rides_cancelled_total",
-				Help:      "Total number of cancelled rides.",
-			},
-			[]string{"cancelled_by", "reason"},
-		),
-		duration: prometheus.NewHistogramVec(
-			prometheus.HistogramOpts{
-				Namespace: cfg.Namespace,
-				Subsystem: cfg.Subsystem,
-				Name:      "ride_duration_seconds",
-				Help:      "Duration of rides in seconds.",
-				Buckets:   DurationBuckets,
-			},
-			[]string{"service_type"},
-		),
-		distance: prometheus.NewHistogramVec(
-			prometheus.HistogramOpts{
-				Namespace: cfg.Namespace,
-				Subsystem: cfg.Subsystem,
-				Name:      "ride_distance_km",
-				Help:      "Distance of rides in kilometers.",
-				Buckets:   DistanceBuckets,
-			},
-			[]string{"service_type"},
-		),
-		fare: prometheus.NewHistogramVec(
-			prometheus.HistogramOpts{
-				Namespace: cfg.Namespace,
-				Subsystem: cfg.Subsystem,
-				Name:      "ride_fare_mzn",
-				Help:      "Fare of rides in MZN (smallest currency unit).",
-				Buckets:   FareBuckets,
-			},
-			[]string{"service_type"},
-		),
-		waitTime: prometheus.NewHistogramVec(
-			prometheus.HistogramOpts{
-				Namespace: cfg.Namespace,
-				Subsystem: cfg.Subsystem,
-				Name:      "ride_wait_time_seconds",
-				Help:      "Time to match a driver in seconds.",
-				Buckets:   DurationBuckets,
-			},
-			[]string{"service_type"},
-		),
+	c := &RideCollector{}
+
+	c.requestedTotal, err = registerCollector(cfg.Registry, prometheus.NewCounterVec(
+		prometheus.CounterOpts{
+			Namespace: cfg.Namespace,
+			Subsystem: cfg.Subsystem,
+			Name:      "rides_requested_total",
+			Help:      "Total number of ride requests.",
+		},
+		[]string{"service_type", "city"},
+	))
+	if err != nil {
+		return nil, err
 	}
 
-	// Register all metrics with the registry.
-	collectors := []prometheus.Collector{
-		c.requestedTotal,
-		c.completedTotal,
-		c.cancelledTotal,
-		c.duration,
-		c.distance,
-		c.fare,
-		c.waitTime,
+	c.completedTotal, err = registerCollector(cfg.Registry, prometheus.NewCounterVec(
+		prometheus.CounterOpts{
+			Namespace: cfg.Namespace,
+			Subsystem: cfg.Subsystem,
+			Name:      "rides_completed_total",
+			Help:      "Total number of completed rides.",
+		},
+		[]string{"service_type", "city"},
+	))
+	if err != nil {
+		return nil, err
 	}
 
-	for _, collector := range collectors {
-		if err := cfg.Registry.Register(collector); err != nil {
-			if are, ok := err.(prometheus.AlreadyRegisteredError); ok {
-				switch existing := are.ExistingCollector.(type) {
-				case *prometheus.CounterVec:
-					if collector == c.requestedTotal {
-						c.requestedTotal = existing
-					} else if collector == c.completedTotal {
-						c.completedTotal = existing
-					} else if collector == c.cancelledTotal {
-						c.cancelledTotal = existing
-					}
-				case *prometheus.HistogramVec:
-					if collector == c.duration {
-						c.duration = existing
-					} else if collector == c.distance {
-						c.distance = existing
-					} else if collector == c.fare {
-						c.fare = existing
-					} else if collector == c.waitTime {
-						c.waitTime = existing
-					}
-				}
-			} else {
-				return nil, err
-			}
-		}
+	c.cancelledTotal, err = registerCollector(cfg.Registry, prometheus.NewCounterVec(
+		prometheus.CounterOpts{
+			Namespace: cfg.Namespace,
+			Subsystem: cfg.Subsystem,
+			Name:      "rides_cancelled_total",
+			Help:      "Total number of cancelled rides.",
+		},
+		[]string{"cancelled_by", "reason"},
+	))
+	if err != nil {
+		return nil, err
+	}
+
+	c.duration, err = registerCollector(cfg.Registry, prometheus.NewHistogramVec(
+		prometheus.HistogramOpts{
+			Namespace: cfg.Namespace,
+			Subsystem: cfg.Subsystem,
+			Name:      "ride_duration_seconds",
+			Help:      "Duration of rides in seconds.",
+			Buckets:   DurationBuckets,
+		},
+		[]string{"service_type"},
+	))
+	if err != nil {
+		return nil, err
+	}
+
+	c.distance, err = registerCollector(cfg.Registry, prometheus.NewHistogramVec(
+		prometheus.HistogramOpts{
+			Namespace: cfg.Namespace,
+			Subsystem: cfg.Subsystem,
+			Name:      "ride_distance_km",
+			Help:      "Distance of rides in kilometers.",
+			Buckets:   DistanceBuckets,
+		},
+		[]string{"service_type"},
+	))
+	if err != nil {
+		return nil, err
+	}
+
+	c.fare, err = registerCollector(cfg.Registry, prometheus.NewHistogramVec(
+		prometheus.HistogramOpts{
+			Namespace: cfg.Namespace,
+			Subsystem: cfg.Subsystem,
+			Name:      "ride_fare_mzn",
+			Help:      "Fare of rides in MZN (smallest currency unit).",
+			Buckets:   FareBuckets,
+		},
+		[]string{"service_type"},
+	))
+	if err != nil {
+		return nil, err
+	}
+
+	c.waitTime, err = registerCollector(cfg.Registry, prometheus.NewHistogramVec(
+		prometheus.HistogramOpts{
+			Namespace: cfg.Namespace,
+			Subsystem: cfg.Subsystem,
+			Name:      "ride_wait_time_seconds",
+			Help:      "Time to match a driver in seconds.",
+			Buckets:   DurationBuckets,
+		},
+		[]string{"service_type"},
+	))
+	if err != nil {
+		return nil, err
 	}
 
 	return c, nil

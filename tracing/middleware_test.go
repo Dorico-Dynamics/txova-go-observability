@@ -9,13 +9,19 @@ import (
 	"testing"
 )
 
+// testConfig returns a config for testing with ExporterNone.
+func testConfig(serviceName string) Config {
+	return Config{
+		ServiceName: serviceName,
+		Exporter:    ExporterNone,
+	}
+}
+
 func TestMiddleware(t *testing.T) {
 	t.Parallel()
 
 	ctx := context.Background()
-	cfg := DefaultConfig().
-		WithServiceName("test-service").
-		WithExporter(ExporterNone)
+	cfg := testConfig("test-service")
 
 	tracer, err := New(ctx, cfg)
 	if err != nil {
@@ -56,9 +62,7 @@ func TestMiddleware_ErrorStatusCode(t *testing.T) {
 	t.Parallel()
 
 	ctx := context.Background()
-	cfg := DefaultConfig().
-		WithServiceName("test-service").
-		WithExporter(ExporterNone)
+	cfg := testConfig("test-service")
 
 	tracer, err := New(ctx, cfg)
 	if err != nil {
@@ -88,9 +92,7 @@ func TestMiddleware_ExtractsTraceContext(t *testing.T) {
 	t.Parallel()
 
 	ctx := context.Background()
-	cfg := DefaultConfig().
-		WithServiceName("test-service").
-		WithExporter(ExporterNone)
+	cfg := testConfig("test-service")
 
 	tracer, err := New(ctx, cfg)
 	if err != nil {
@@ -120,9 +122,7 @@ func TestMiddleware_ClientIP_XForwardedFor(t *testing.T) {
 	t.Parallel()
 
 	ctx := context.Background()
-	cfg := DefaultConfig().
-		WithServiceName("test-service").
-		WithExporter(ExporterNone)
+	cfg := testConfig("test-service")
 
 	tracer, err := New(ctx, cfg)
 	if err != nil {
@@ -151,9 +151,7 @@ func TestMiddleware_ClientIP_XRealIP(t *testing.T) {
 	t.Parallel()
 
 	ctx := context.Background()
-	cfg := DefaultConfig().
-		WithServiceName("test-service").
-		WithExporter(ExporterNone)
+	cfg := testConfig("test-service")
 
 	tracer, err := New(ctx, cfg)
 	if err != nil {
@@ -230,9 +228,7 @@ func TestRoundTripper(t *testing.T) {
 	t.Parallel()
 
 	ctx := context.Background()
-	cfg := DefaultConfig().
-		WithServiceName("test-service").
-		WithExporter(ExporterNone)
+	cfg := testConfig("test-service")
 
 	tracer, err := New(ctx, cfg)
 	if err != nil {
@@ -280,9 +276,7 @@ func TestRoundTripper_NilBase(t *testing.T) {
 	t.Parallel()
 
 	ctx := context.Background()
-	cfg := DefaultConfig().
-		WithServiceName("test-service").
-		WithExporter(ExporterNone)
+	cfg := testConfig("test-service")
 
 	tracer, err := New(ctx, cfg)
 	if err != nil {
@@ -302,9 +296,7 @@ func TestRoundTripper_ErrorResponse(t *testing.T) {
 	t.Parallel()
 
 	ctx := context.Background()
-	cfg := DefaultConfig().
-		WithServiceName("test-service").
-		WithExporter(ExporterNone)
+	cfg := testConfig("test-service")
 
 	tracer, err := New(ctx, cfg)
 	if err != nil {
@@ -345,9 +337,7 @@ func TestSpanFromContext(t *testing.T) {
 	t.Parallel()
 
 	ctx := context.Background()
-	cfg := DefaultConfig().
-		WithServiceName("test-service").
-		WithExporter(ExporterNone)
+	cfg := testConfig("test-service")
 
 	tracer, err := New(ctx, cfg)
 	if err != nil {
@@ -360,7 +350,9 @@ func TestSpanFromContext(t *testing.T) {
 
 	retrievedSpan := SpanFromContext(spanCtx)
 
-	if retrievedSpan != span {
+	// Compare span contexts since spans may not be directly comparable.
+	if retrievedSpan.SpanContext().TraceID() != span.SpanContext().TraceID() ||
+		retrievedSpan.SpanContext().SpanID() != span.SpanContext().SpanID() {
 		t.Error("SpanFromContext() should return the same span")
 	}
 }
@@ -369,9 +361,7 @@ func TestAddSpanAttributes(t *testing.T) {
 	t.Parallel()
 
 	ctx := context.Background()
-	cfg := DefaultConfig().
-		WithServiceName("test-service").
-		WithExporter(ExporterNone)
+	cfg := testConfig("test-service")
 
 	tracer, err := New(ctx, cfg)
 	if err != nil {
@@ -390,9 +380,7 @@ func TestRecordError(t *testing.T) {
 	t.Parallel()
 
 	ctx := context.Background()
-	cfg := DefaultConfig().
-		WithServiceName("test-service").
-		WithExporter(ExporterNone)
+	cfg := testConfig("test-service")
 
 	tracer, err := New(ctx, cfg)
 	if err != nil {
@@ -466,9 +454,7 @@ func TestMiddleware_WriteWithoutHeader(t *testing.T) {
 	t.Parallel()
 
 	ctx := context.Background()
-	cfg := DefaultConfig().
-		WithServiceName("test-service").
-		WithExporter(ExporterNone)
+	cfg := testConfig("test-service")
 
 	tracer, err := New(ctx, cfg)
 	if err != nil {

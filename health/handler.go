@@ -74,7 +74,7 @@ func (h *Handler) FullHandler(w http.ResponseWriter, r *http.Request) {
 func (h *Handler) writeJSON(w http.ResponseWriter, statusCode int, data any) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(statusCode)
-	json.NewEncoder(w).Encode(data)
+	_ = json.NewEncoder(w).Encode(data) //nolint:errcheck // best effort write to response
 }
 
 // RegisterRoutes registers health check routes on an http.ServeMux.

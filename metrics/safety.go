@@ -13,65 +13,49 @@ type SafetyCollector struct {
 
 // NewSafetyCollector creates a new SafetyCollector with the given configuration.
 func NewSafetyCollector(cfg Config) (*SafetyCollector, error) {
-	if err := cfg.Validate(); err != nil {
+	cfg, err := cfg.Validate()
+	if err != nil {
 		return nil, err
 	}
 
-	c := &SafetyCollector{
-		emergenciesTotal: prometheus.NewCounterVec(
-			prometheus.CounterOpts{
-				Namespace: cfg.Namespace,
-				Subsystem: cfg.Subsystem,
-				Name:      "emergencies_triggered_total",
-				Help:      "Total number of emergency (SOS) activations.",
-			},
-			[]string{"type", "city"},
-		),
-		incidentsTotal: prometheus.NewCounterVec(
-			prometheus.CounterOpts{
-				Namespace: cfg.Namespace,
-				Subsystem: cfg.Subsystem,
-				Name:      "incidents_reported_total",
-				Help:      "Total number of incidents reported.",
-			},
-			[]string{"severity"},
-		),
-		tripSharesTotal: prometheus.NewCounter(
-			prometheus.CounterOpts{
-				Namespace: cfg.Namespace,
-				Subsystem: cfg.Subsystem,
-				Name:      "trip_shares_total",
-				Help:      "Total number of trip sharing activations.",
-			},
-		),
+	c := &SafetyCollector{}
+
+	c.emergenciesTotal, err = registerCollector(cfg.Registry, prometheus.NewCounterVec(
+		prometheus.CounterOpts{
+			Namespace: cfg.Namespace,
+			Subsystem: cfg.Subsystem,
+			Name:      "emergencies_triggered_total",
+			Help:      "Total number of emergency (SOS) activations.",
+		},
+		[]string{"type", "city"},
+	))
+	if err != nil {
+		return nil, err
 	}
 
-	// Register all metrics with the registry.
-	collectors := []prometheus.Collector{
-		c.emergenciesTotal,
-		c.incidentsTotal,
-		c.tripSharesTotal,
+	c.incidentsTotal, err = registerCollector(cfg.Registry, prometheus.NewCounterVec(
+		prometheus.CounterOpts{
+			Namespace: cfg.Namespace,
+			Subsystem: cfg.Subsystem,
+			Name:      "incidents_reported_total",
+			Help:      "Total number of incidents reported.",
+		},
+		[]string{"severity"},
+	))
+	if err != nil {
+		return nil, err
 	}
 
-	for _, collector := range collectors {
-		if err := cfg.Registry.Register(collector); err != nil {
-			if are, ok := err.(prometheus.AlreadyRegisteredError); ok {
-				switch existing := are.ExistingCollector.(type) {
-				case *prometheus.CounterVec:
-					if collector == c.emergenciesTotal {
-						c.emergenciesTotal = existing
-					} else if collector == c.incidentsTotal {
-						c.incidentsTotal = existing
-					}
-				case prometheus.Counter:
-					if collector == c.tripSharesTotal {
-						c.tripSharesTotal = existing
-					}
-				}
-			} else {
-				return nil, err
-			}
-		}
+	c.tripSharesTotal, err = registerCollector(cfg.Registry, prometheus.NewCounter(
+		prometheus.CounterOpts{
+			Namespace: cfg.Namespace,
+			Subsystem: cfg.Subsystem,
+			Name:      "trip_shares_total",
+			Help:      "Total number of trip sharing activations.",
+		},
+	))
+	if err != nil {
+		return nil, err
 	}
 
 	return c, nil

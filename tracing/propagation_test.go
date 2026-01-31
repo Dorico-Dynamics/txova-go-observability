@@ -130,9 +130,10 @@ func TestInject(t *testing.T) {
 
 	// Create a tracer to generate valid spans.
 	ctx := context.Background()
-	cfg := DefaultConfig().
-		WithServiceName("test-service").
-		WithExporter(ExporterNone)
+	cfg := Config{
+		ServiceName: "test-service",
+		Exporter:    ExporterNone,
+	}
 
 	tracer, err := New(ctx, cfg)
 	if err != nil {
@@ -179,9 +180,10 @@ func TestInjectToKafka(t *testing.T) {
 
 	// Create a tracer to generate valid spans.
 	ctx := context.Background()
-	cfg := DefaultConfig().
-		WithServiceName("test-service").
-		WithExporter(ExporterNone)
+	cfg := Config{
+		ServiceName: "test-service",
+		Exporter:    ExporterNone,
+	}
 
 	tracer, err := New(ctx, cfg)
 	if err != nil {
@@ -290,9 +292,10 @@ func TestSpanContextFromContext(t *testing.T) {
 
 	// Create a tracer to generate valid spans.
 	ctx := context.Background()
-	cfg := DefaultConfig().
-		WithServiceName("test-service").
-		WithExporter(ExporterNone)
+	cfg := Config{
+		ServiceName: "test-service",
+		Exporter:    ExporterNone,
+	}
 
 	tracer, err := New(ctx, cfg)
 	if err != nil {

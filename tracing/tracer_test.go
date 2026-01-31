@@ -9,9 +9,10 @@ func TestNew_ValidConfig(t *testing.T) {
 	t.Parallel()
 
 	ctx := context.Background()
-	cfg := DefaultConfig().
-		WithServiceName("test-service").
-		WithExporter(ExporterNone) // Use no exporter for tests
+	cfg := Config{
+		ServiceName: "test-service",
+		Exporter:    ExporterNone,
+	}
 
 	tracer, err := New(ctx, cfg)
 	if err != nil {
@@ -57,9 +58,10 @@ func TestTracer_Start(t *testing.T) {
 	t.Parallel()
 
 	ctx := context.Background()
-	cfg := DefaultConfig().
-		WithServiceName("test-service").
-		WithExporter(ExporterNone)
+	cfg := Config{
+		ServiceName: "test-service",
+		Exporter:    ExporterNone,
+	}
 
 	tracer, err := New(ctx, cfg)
 	if err != nil {
@@ -86,9 +88,10 @@ func TestTracer_Shutdown(t *testing.T) {
 	t.Parallel()
 
 	ctx := context.Background()
-	cfg := DefaultConfig().
-		WithServiceName("test-service").
-		WithExporter(ExporterNone)
+	cfg := Config{
+		ServiceName: "test-service",
+		Exporter:    ExporterNone,
+	}
 
 	tracer, err := New(ctx, cfg)
 	if err != nil {
@@ -105,9 +108,10 @@ func TestTracer_ForceFlush(t *testing.T) {
 	t.Parallel()
 
 	ctx := context.Background()
-	cfg := DefaultConfig().
-		WithServiceName("test-service").
-		WithExporter(ExporterNone)
+	cfg := Config{
+		ServiceName: "test-service",
+		Exporter:    ExporterNone,
+	}
 
 	tracer, err := New(ctx, cfg)
 	if err != nil {
@@ -140,10 +144,11 @@ func TestNew_SamplerConfigurations(t *testing.T) {
 			t.Parallel()
 
 			ctx := context.Background()
-			cfg := DefaultConfig().
-				WithServiceName("test-service").
-				WithExporter(ExporterNone).
-				WithSampleRate(tt.sampleRate)
+			cfg := Config{
+				ServiceName: "test-service",
+				Exporter:    ExporterNone,
+				SampleRate:  tt.sampleRate,
+			}
 
 			tracer, err := New(ctx, cfg)
 			if err != nil {
@@ -175,10 +180,11 @@ func TestNew_PropagationConfigurations(t *testing.T) {
 			t.Parallel()
 
 			ctx := context.Background()
-			cfg := DefaultConfig().
-				WithServiceName("test-service").
-				WithExporter(ExporterNone).
-				WithPropagation(tt.propagation)
+			cfg := Config{
+				ServiceName: "test-service",
+				Exporter:    ExporterNone,
+				Propagation: tt.propagation,
+			}
 
 			tracer, err := New(ctx, cfg)
 			if err != nil {
@@ -193,9 +199,10 @@ func TestNew_ExporterNone(t *testing.T) {
 	t.Parallel()
 
 	ctx := context.Background()
-	cfg := DefaultConfig().
-		WithServiceName("test-service").
-		WithExporter(ExporterNone)
+	cfg := Config{
+		ServiceName: "test-service",
+		Exporter:    ExporterNone,
+	}
 
 	tracer, err := New(ctx, cfg)
 	if err != nil {
@@ -212,9 +219,10 @@ func TestTracer_NestedSpans(t *testing.T) {
 	t.Parallel()
 
 	ctx := context.Background()
-	cfg := DefaultConfig().
-		WithServiceName("test-service").
-		WithExporter(ExporterNone)
+	cfg := Config{
+		ServiceName: "test-service",
+		Exporter:    ExporterNone,
+	}
 
 	tracer, err := New(ctx, cfg)
 	if err != nil {
@@ -246,10 +254,11 @@ func TestNew_WithHeaders(t *testing.T) {
 	headers := map[string]string{
 		"Authorization": "Bearer token",
 	}
-	cfg := DefaultConfig().
-		WithServiceName("test-service").
-		WithExporter(ExporterNone).
-		WithHeaders(headers)
+	cfg := Config{
+		ServiceName: "test-service",
+		Exporter:    ExporterNone,
+		Headers:     headers,
+	}
 
 	tracer, err := New(ctx, cfg)
 	if err != nil {

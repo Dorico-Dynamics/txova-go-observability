@@ -69,55 +69,55 @@ func DefaultConfig() Config {
 }
 
 // WithServiceName sets the service name.
-func (c Config) WithServiceName(name string) Config {
+func (c *Config) WithServiceName(name string) *Config {
 	c.ServiceName = name
 	return c
 }
 
 // WithServiceVersion sets the service version.
-func (c Config) WithServiceVersion(version string) Config {
+func (c *Config) WithServiceVersion(version string) *Config {
 	c.ServiceVersion = version
 	return c
 }
 
 // WithEndpoint sets the OTLP collector endpoint.
-func (c Config) WithEndpoint(endpoint string) Config {
+func (c *Config) WithEndpoint(endpoint string) *Config {
 	c.Endpoint = endpoint
 	return c
 }
 
 // WithSampleRate sets the sampling rate.
-func (c Config) WithSampleRate(rate float64) Config {
+func (c *Config) WithSampleRate(rate float64) *Config {
 	c.SampleRate = rate
 	return c
 }
 
 // WithPropagation sets the trace context propagation format.
-func (c Config) WithPropagation(propagation PropagationType) Config {
+func (c *Config) WithPropagation(propagation PropagationType) *Config {
 	c.Propagation = propagation
 	return c
 }
 
 // WithExporter sets the trace exporter type.
-func (c Config) WithExporter(exporter ExporterType) Config {
+func (c *Config) WithExporter(exporter ExporterType) *Config {
 	c.Exporter = exporter
 	return c
 }
 
 // WithInsecure sets whether to use insecure connection.
-func (c Config) WithInsecure(insecure bool) Config {
+func (c *Config) WithInsecure(insecure bool) *Config { //nolint:unparam // returns pointer for method chaining
 	c.Insecure = insecure
 	return c
 }
 
 // WithHeaders sets additional headers for the exporter.
-func (c Config) WithHeaders(headers map[string]string) Config {
+func (c *Config) WithHeaders(headers map[string]string) *Config {
 	c.Headers = headers
 	return c
 }
 
 // Validate validates the configuration.
-func (c Config) Validate() error {
+func (c *Config) Validate() error {
 	if c.ServiceName == "" {
 		return fmt.Errorf("service name is required")
 	}

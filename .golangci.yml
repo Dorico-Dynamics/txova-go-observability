@@ -146,9 +146,15 @@ linters:
       - path: _test\.go
         text: "elseif"
 
-      # Allow package names that shadow stdlib - intentional design choice
-      - path: errors/
-        text: "var-naming: avoid package names that conflict with Go standard library"
+      # Allow nested if blocks in manager - health check logic is naturally nested
+      - path: health/manager\.go
+        linters:
+          - nestif
+
+      # Allow nested if blocks in observability setup - initialization logic is naturally nested
+      - path: observability\.go
+        linters:
+          - nestif
 
 formatters:
   enable:

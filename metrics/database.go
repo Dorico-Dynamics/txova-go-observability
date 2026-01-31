@@ -16,82 +16,65 @@ type DBCollector struct {
 
 // NewDBCollector creates a new DBCollector with the given configuration.
 func NewDBCollector(cfg Config) (*DBCollector, error) {
-	if err := cfg.Validate(); err != nil {
+	cfg, err := cfg.Validate()
+	if err != nil {
 		return nil, err
 	}
 
-	c := &DBCollector{
-		connectionsTotal: prometheus.NewGaugeVec(
-			prometheus.GaugeOpts{
-				Namespace: cfg.Namespace,
-				Subsystem: cfg.Subsystem,
-				Name:      "db_connections_total",
-				Help:      "Current number of database connections by pool and state.",
-			},
-			[]string{"pool", "state"},
-		),
-		queryDuration: prometheus.NewHistogramVec(
-			prometheus.HistogramOpts{
-				Namespace: cfg.Namespace,
-				Subsystem: cfg.Subsystem,
-				Name:      "db_query_duration_seconds",
-				Help:      "Database query latency in seconds.",
-				Buckets:   DBLatencyBuckets,
-			},
-			[]string{"operation"},
-		),
-		queryErrorsTotal: prometheus.NewCounterVec(
-			prometheus.CounterOpts{
-				Namespace: cfg.Namespace,
-				Subsystem: cfg.Subsystem,
-				Name:      "db_query_errors_total",
-				Help:      "Total number of database query errors.",
-			},
-			[]string{"operation", "error"},
-		),
-		transactionDuration: prometheus.NewHistogramVec(
-			prometheus.HistogramOpts{
-				Namespace: cfg.Namespace,
-				Subsystem: cfg.Subsystem,
-				Name:      "db_transaction_duration_seconds",
-				Help:      "Database transaction latency in seconds.",
-				Buckets:   DBLatencyBuckets,
-			},
-			[]string{},
-		),
+	c := &DBCollector{}
+
+	c.connectionsTotal, err = registerCollector(cfg.Registry, prometheus.NewGaugeVec(
+		prometheus.GaugeOpts{
+			Namespace: cfg.Namespace,
+			Subsystem: cfg.Subsystem,
+			Name:      "db_connections_total",
+			Help:      "Current number of database connections by pool and state.",
+		},
+		[]string{"pool", "state"},
+	))
+	if err != nil {
+		return nil, err
 	}
 
-	// Register all metrics with the registry.
-	collectors := []prometheus.Collector{
-		c.connectionsTotal,
-		c.queryDuration,
-		c.queryErrorsTotal,
-		c.transactionDuration,
+	c.queryDuration, err = registerCollector(cfg.Registry, prometheus.NewHistogramVec(
+		prometheus.HistogramOpts{
+			Namespace: cfg.Namespace,
+			Subsystem: cfg.Subsystem,
+			Name:      "db_query_duration_seconds",
+			Help:      "Database query latency in seconds.",
+			Buckets:   DBLatencyBuckets,
+		},
+		[]string{"operation"},
+	))
+	if err != nil {
+		return nil, err
 	}
 
-	for _, collector := range collectors {
-		if err := cfg.Registry.Register(collector); err != nil {
-			if are, ok := err.(prometheus.AlreadyRegisteredError); ok {
-				switch existing := are.ExistingCollector.(type) {
-				case *prometheus.GaugeVec:
-					if collector == c.connectionsTotal {
-						c.connectionsTotal = existing
-					}
-				case *prometheus.HistogramVec:
-					if collector == c.queryDuration {
-						c.queryDuration = existing
-					} else if collector == c.transactionDuration {
-						c.transactionDuration = existing
-					}
-				case *prometheus.CounterVec:
-					if collector == c.queryErrorsTotal {
-						c.queryErrorsTotal = existing
-					}
-				}
-			} else {
-				return nil, err
-			}
-		}
+	c.queryErrorsTotal, err = registerCollector(cfg.Registry, prometheus.NewCounterVec(
+		prometheus.CounterOpts{
+			Namespace: cfg.Namespace,
+			Subsystem: cfg.Subsystem,
+			Name:      "db_query_errors_total",
+			Help:      "Total number of database query errors.",
+		},
+		[]string{"operation", "error"},
+	))
+	if err != nil {
+		return nil, err
+	}
+
+	c.transactionDuration, err = registerCollector(cfg.Registry, prometheus.NewHistogramVec(
+		prometheus.HistogramOpts{
+			Namespace: cfg.Namespace,
+			Subsystem: cfg.Subsystem,
+			Name:      "db_transaction_duration_seconds",
+			Help:      "Database transaction latency in seconds.",
+			Buckets:   DBLatencyBuckets,
+		},
+		[]string{},
+	))
+	if err != nil {
+		return nil, err
 	}
 
 	return c, nil

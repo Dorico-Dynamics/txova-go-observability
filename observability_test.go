@@ -7,10 +7,11 @@ import (
 	"net/http/httptest"
 	"testing"
 
+	"github.com/prometheus/client_golang/prometheus"
+
 	"github.com/Dorico-Dynamics/txova-go-observability/health"
 	"github.com/Dorico-Dynamics/txova-go-observability/metrics"
 	"github.com/Dorico-Dynamics/txova-go-observability/tracing"
-	"github.com/prometheus/client_golang/prometheus"
 )
 
 func TestDefaultConfig(t *testing.T) {
@@ -34,11 +35,17 @@ func TestNew_AllEnabled(t *testing.T) {
 
 	ctx := context.Background()
 	registry := prometheus.NewRegistry()
-	cfg := DefaultConfig()
-	cfg.Metrics = metrics.DefaultConfig().WithRegistry(registry).WithSubsystem("test_all")
-	cfg.Tracing = tracing.DefaultConfig().
-		WithServiceName("test-service").
-		WithExporter(tracing.ExporterNone)
+	cfg := &Config{
+		Metrics: metrics.DefaultConfig().WithRegistry(registry).WithSubsystem("test_all"),
+		Tracing: tracing.Config{
+			ServiceName: "test-service",
+			Exporter:    tracing.ExporterNone,
+		},
+		Health:         health.DefaultManagerConfig(),
+		MetricsEnabled: true,
+		TracingEnabled: true,
+		HealthEnabled:  true,
+	}
 
 	obs, err := New(ctx, cfg)
 	if err != nil {
@@ -85,10 +92,11 @@ func TestNew_AllDisabled(t *testing.T) {
 	t.Parallel()
 
 	ctx := context.Background()
-	cfg := DefaultConfig()
-	cfg.MetricsEnabled = false
-	cfg.TracingEnabled = false
-	cfg.HealthEnabled = false
+	cfg := &Config{
+		MetricsEnabled: false,
+		TracingEnabled: false,
+		HealthEnabled:  false,
+	}
 
 	obs, err := New(ctx, cfg)
 	if err != nil {
@@ -111,10 +119,12 @@ func TestNew_InvalidTracingConfig(t *testing.T) {
 	t.Parallel()
 
 	ctx := context.Background()
-	cfg := DefaultConfig()
-	cfg.Tracing = tracing.Config{ServiceName: ""} // Invalid
-	cfg.MetricsEnabled = false
-	cfg.HealthEnabled = false
+	cfg := &Config{
+		Tracing:        tracing.Config{ServiceName: ""}, // Invalid
+		MetricsEnabled: false,
+		TracingEnabled: true,
+		HealthEnabled:  false,
+	}
 
 	_, err := New(ctx, cfg)
 	if err == nil {
@@ -126,9 +136,12 @@ func TestObservability_Initialize(t *testing.T) {
 	t.Parallel()
 
 	ctx := context.Background()
-	cfg := DefaultConfig()
-	cfg.MetricsEnabled = false
-	cfg.TracingEnabled = false
+	cfg := &Config{
+		Health:         health.DefaultManagerConfig(),
+		MetricsEnabled: false,
+		TracingEnabled: false,
+		HealthEnabled:  true,
+	}
 
 	obs, err := New(ctx, cfg)
 	if err != nil {
@@ -149,11 +162,17 @@ func TestObservability_Close(t *testing.T) {
 
 	ctx := context.Background()
 	registry := prometheus.NewRegistry()
-	cfg := DefaultConfig()
-	cfg.Metrics = metrics.DefaultConfig().WithRegistry(registry).WithSubsystem("test_close")
-	cfg.Tracing = tracing.DefaultConfig().
-		WithServiceName("test-service").
-		WithExporter(tracing.ExporterNone)
+	cfg := &Config{
+		Metrics: metrics.DefaultConfig().WithRegistry(registry).WithSubsystem("test_close"),
+		Tracing: tracing.Config{
+			ServiceName: "test-service",
+			Exporter:    tracing.ExporterNone,
+		},
+		Health:         health.DefaultManagerConfig(),
+		MetricsEnabled: true,
+		TracingEnabled: true,
+		HealthEnabled:  true,
+	}
 
 	obs, err := New(ctx, cfg)
 	if err != nil {
@@ -173,10 +192,11 @@ func TestObservability_HealthCheck_NoManager(t *testing.T) {
 	t.Parallel()
 
 	ctx := context.Background()
-	cfg := DefaultConfig()
-	cfg.MetricsEnabled = false
-	cfg.TracingEnabled = false
-	cfg.HealthEnabled = false
+	cfg := &Config{
+		MetricsEnabled: false,
+		TracingEnabled: false,
+		HealthEnabled:  false,
+	}
 
 	obs, err := New(ctx, cfg)
 	if err != nil {
@@ -193,10 +213,12 @@ func TestObservability_HealthCheck_Healthy(t *testing.T) {
 	t.Parallel()
 
 	ctx := context.Background()
-	cfg := DefaultConfig()
-	cfg.MetricsEnabled = false
-	cfg.TracingEnabled = false
-	cfg.Health = health.DefaultManagerConfig().WithCacheTTL(0)
+	cfg := &Config{
+		Health:         health.DefaultManagerConfig().WithCacheTTL(0),
+		MetricsEnabled: false,
+		TracingEnabled: false,
+		HealthEnabled:  true,
+	}
 
 	obs, err := New(ctx, cfg)
 	if err != nil {
@@ -217,10 +239,12 @@ func TestObservability_HealthCheck_Unhealthy(t *testing.T) {
 	t.Parallel()
 
 	ctx := context.Background()
-	cfg := DefaultConfig()
-	cfg.MetricsEnabled = false
-	cfg.TracingEnabled = false
-	cfg.Health = health.DefaultManagerConfig().WithCacheTTL(0)
+	cfg := &Config{
+		Health:         health.DefaultManagerConfig().WithCacheTTL(0),
+		MetricsEnabled: false,
+		TracingEnabled: false,
+		HealthEnabled:  true,
+	}
 
 	obs, err := New(ctx, cfg)
 	if err != nil {
@@ -242,11 +266,17 @@ func TestObservability_HTTPMiddleware(t *testing.T) {
 
 	ctx := context.Background()
 	registry := prometheus.NewRegistry()
-	cfg := DefaultConfig()
-	cfg.Metrics = metrics.DefaultConfig().WithRegistry(registry).WithSubsystem("test_mw")
-	cfg.Tracing = tracing.DefaultConfig().
-		WithServiceName("test-service").
-		WithExporter(tracing.ExporterNone)
+	cfg := &Config{
+		Metrics: metrics.DefaultConfig().WithRegistry(registry).WithSubsystem("test_mw"),
+		Tracing: tracing.Config{
+			ServiceName: "test-service",
+			Exporter:    tracing.ExporterNone,
+		},
+		Health:         health.DefaultManagerConfig(),
+		MetricsEnabled: true,
+		TracingEnabled: true,
+		HealthEnabled:  true,
+	}
 
 	obs, err := New(ctx, cfg)
 	if err != nil {
@@ -256,12 +286,12 @@ func TestObservability_HTTPMiddleware(t *testing.T) {
 
 	handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
-		w.Write([]byte("OK"))
+		_, _ = w.Write([]byte("OK"))
 	})
 
 	wrapped := obs.HTTPMiddleware()(handler)
 
-	req := httptest.NewRequest(http.MethodGet, "/api/test", nil)
+	req := httptest.NewRequest(http.MethodGet, "/api/test", http.NoBody)
 	rec := httptest.NewRecorder()
 
 	wrapped.ServeHTTP(rec, req)
@@ -275,10 +305,11 @@ func TestObservability_HTTPMiddleware_NoMetrics(t *testing.T) {
 	t.Parallel()
 
 	ctx := context.Background()
-	cfg := DefaultConfig()
-	cfg.MetricsEnabled = false
-	cfg.TracingEnabled = false
-	cfg.HealthEnabled = false
+	cfg := &Config{
+		MetricsEnabled: false,
+		TracingEnabled: false,
+		HealthEnabled:  false,
+	}
 
 	obs, err := New(ctx, cfg)
 	if err != nil {
@@ -291,7 +322,7 @@ func TestObservability_HTTPMiddleware_NoMetrics(t *testing.T) {
 
 	wrapped := obs.HTTPMiddleware()(handler)
 
-	req := httptest.NewRequest(http.MethodGet, "/api/test", nil)
+	req := httptest.NewRequest(http.MethodGet, "/api/test", http.NoBody)
 	rec := httptest.NewRecorder()
 
 	wrapped.ServeHTTP(rec, req)
@@ -305,10 +336,12 @@ func TestObservability_RegisterHealthChecker(t *testing.T) {
 	t.Parallel()
 
 	ctx := context.Background()
-	cfg := DefaultConfig()
-	cfg.MetricsEnabled = false
-	cfg.TracingEnabled = false
-	cfg.Health = health.DefaultManagerConfig().WithCacheTTL(0)
+	cfg := &Config{
+		Health:         health.DefaultManagerConfig().WithCacheTTL(0),
+		MetricsEnabled: false,
+		TracingEnabled: false,
+		HealthEnabled:  true,
+	}
 
 	obs, err := New(ctx, cfg)
 	if err != nil {
@@ -331,10 +364,11 @@ func TestObservability_RegisterHealthChecker_NoManager(t *testing.T) {
 	t.Parallel()
 
 	ctx := context.Background()
-	cfg := DefaultConfig()
-	cfg.MetricsEnabled = false
-	cfg.TracingEnabled = false
-	cfg.HealthEnabled = false
+	cfg := &Config{
+		MetricsEnabled: false,
+		TracingEnabled: false,
+		HealthEnabled:  false,
+	}
 
 	obs, err := New(ctx, cfg)
 	if err != nil {
@@ -353,12 +387,15 @@ func TestObservability_HTTPRoundTripper_WithTracer(t *testing.T) {
 	t.Parallel()
 
 	ctx := context.Background()
-	cfg := DefaultConfig()
-	cfg.MetricsEnabled = false
-	cfg.HealthEnabled = false
-	cfg.Tracing = tracing.DefaultConfig().
-		WithServiceName("test-service").
-		WithExporter(tracing.ExporterNone)
+	cfg := &Config{
+		Tracing: tracing.Config{
+			ServiceName: "test-service",
+			Exporter:    tracing.ExporterNone,
+		},
+		MetricsEnabled: false,
+		TracingEnabled: true,
+		HealthEnabled:  false,
+	}
 
 	obs, err := New(ctx, cfg)
 	if err != nil {
@@ -376,10 +413,11 @@ func TestObservability_HTTPRoundTripper_NoTracer(t *testing.T) {
 	t.Parallel()
 
 	ctx := context.Background()
-	cfg := DefaultConfig()
-	cfg.MetricsEnabled = false
-	cfg.TracingEnabled = false
-	cfg.HealthEnabled = false
+	cfg := &Config{
+		MetricsEnabled: false,
+		TracingEnabled: false,
+		HealthEnabled:  false,
+	}
 
 	obs, err := New(ctx, cfg)
 	if err != nil {
@@ -396,10 +434,11 @@ func TestObservability_HTTPRoundTripper_CustomBase(t *testing.T) {
 	t.Parallel()
 
 	ctx := context.Background()
-	cfg := DefaultConfig()
-	cfg.MetricsEnabled = false
-	cfg.TracingEnabled = false
-	cfg.HealthEnabled = false
+	cfg := &Config{
+		MetricsEnabled: false,
+		TracingEnabled: false,
+		HealthEnabled:  false,
+	}
 
 	obs, err := New(ctx, cfg)
 	if err != nil {
@@ -445,4 +484,18 @@ func TestResponseWriter_Write(t *testing.T) {
 	if !rw.written {
 		t.Error("written should be true after Write")
 	}
+}
+
+func TestNew_NilConfig(t *testing.T) {
+	t.Parallel()
+
+	ctx := context.Background()
+	obs, err := New(ctx, nil)
+	// With nil config, it uses DefaultConfig which has TracingEnabled=true
+	// but no valid service name, so this should fail
+	if err == nil && obs != nil {
+		obs.Close(ctx)
+	}
+	// The default tracing config has ServiceName="unknown-service" which is valid
+	// so it should not error. Let's just check it doesn't panic.
 }

@@ -15,90 +15,76 @@ type KafkaCollector struct {
 
 // NewKafkaCollector creates a new KafkaCollector with the given configuration.
 func NewKafkaCollector(cfg Config) (*KafkaCollector, error) {
-	if err := cfg.Validate(); err != nil {
+	cfg, err := cfg.Validate()
+	if err != nil {
 		return nil, err
 	}
 
-	c := &KafkaCollector{
-		messagesProducedTotal: prometheus.NewCounterVec(
-			prometheus.CounterOpts{
-				Namespace: cfg.Namespace,
-				Subsystem: cfg.Subsystem,
-				Name:      "kafka_messages_produced_total",
-				Help:      "Total number of Kafka messages produced.",
-			},
-			[]string{"topic"},
-		),
-		messagesConsumedTotal: prometheus.NewCounterVec(
-			prometheus.CounterOpts{
-				Namespace: cfg.Namespace,
-				Subsystem: cfg.Subsystem,
-				Name:      "kafka_messages_consumed_total",
-				Help:      "Total number of Kafka messages consumed.",
-			},
-			[]string{"topic", "group"},
-		),
-		consumerLag: prometheus.NewGaugeVec(
-			prometheus.GaugeOpts{
-				Namespace: cfg.Namespace,
-				Subsystem: cfg.Subsystem,
-				Name:      "kafka_consumer_lag",
-				Help:      "Current consumer lag by topic, partition, and consumer group.",
-			},
-			[]string{"topic", "partition", "group"},
-		),
-		produceErrorsTotal: prometheus.NewCounterVec(
-			prometheus.CounterOpts{
-				Namespace: cfg.Namespace,
-				Subsystem: cfg.Subsystem,
-				Name:      "kafka_produce_errors_total",
-				Help:      "Total number of Kafka produce errors.",
-			},
-			[]string{"topic"},
-		),
-		consumeErrorsTotal: prometheus.NewCounterVec(
-			prometheus.CounterOpts{
-				Namespace: cfg.Namespace,
-				Subsystem: cfg.Subsystem,
-				Name:      "kafka_consume_errors_total",
-				Help:      "Total number of Kafka consume errors.",
-			},
-			[]string{"topic"},
-		),
+	c := &KafkaCollector{}
+
+	c.messagesProducedTotal, err = registerCollector(cfg.Registry, prometheus.NewCounterVec(
+		prometheus.CounterOpts{
+			Namespace: cfg.Namespace,
+			Subsystem: cfg.Subsystem,
+			Name:      "kafka_messages_produced_total",
+			Help:      "Total number of Kafka messages produced.",
+		},
+		[]string{"topic"},
+	))
+	if err != nil {
+		return nil, err
 	}
 
-	// Register all metrics with the registry.
-	collectors := []prometheus.Collector{
-		c.messagesProducedTotal,
-		c.messagesConsumedTotal,
-		c.consumerLag,
-		c.produceErrorsTotal,
-		c.consumeErrorsTotal,
+	c.messagesConsumedTotal, err = registerCollector(cfg.Registry, prometheus.NewCounterVec(
+		prometheus.CounterOpts{
+			Namespace: cfg.Namespace,
+			Subsystem: cfg.Subsystem,
+			Name:      "kafka_messages_consumed_total",
+			Help:      "Total number of Kafka messages consumed.",
+		},
+		[]string{"topic", "group"},
+	))
+	if err != nil {
+		return nil, err
 	}
 
-	for _, collector := range collectors {
-		if err := cfg.Registry.Register(collector); err != nil {
-			if are, ok := err.(prometheus.AlreadyRegisteredError); ok {
-				switch existing := are.ExistingCollector.(type) {
-				case *prometheus.CounterVec:
-					if collector == c.messagesProducedTotal {
-						c.messagesProducedTotal = existing
-					} else if collector == c.messagesConsumedTotal {
-						c.messagesConsumedTotal = existing
-					} else if collector == c.produceErrorsTotal {
-						c.produceErrorsTotal = existing
-					} else if collector == c.consumeErrorsTotal {
-						c.consumeErrorsTotal = existing
-					}
-				case *prometheus.GaugeVec:
-					if collector == c.consumerLag {
-						c.consumerLag = existing
-					}
-				}
-			} else {
-				return nil, err
-			}
-		}
+	c.consumerLag, err = registerCollector(cfg.Registry, prometheus.NewGaugeVec(
+		prometheus.GaugeOpts{
+			Namespace: cfg.Namespace,
+			Subsystem: cfg.Subsystem,
+			Name:      "kafka_consumer_lag",
+			Help:      "Current consumer lag by topic, partition, and consumer group.",
+		},
+		[]string{"topic", "partition", "group"},
+	))
+	if err != nil {
+		return nil, err
+	}
+
+	c.produceErrorsTotal, err = registerCollector(cfg.Registry, prometheus.NewCounterVec(
+		prometheus.CounterOpts{
+			Namespace: cfg.Namespace,
+			Subsystem: cfg.Subsystem,
+			Name:      "kafka_produce_errors_total",
+			Help:      "Total number of Kafka produce errors.",
+		},
+		[]string{"topic"},
+	))
+	if err != nil {
+		return nil, err
+	}
+
+	c.consumeErrorsTotal, err = registerCollector(cfg.Registry, prometheus.NewCounterVec(
+		prometheus.CounterOpts{
+			Namespace: cfg.Namespace,
+			Subsystem: cfg.Subsystem,
+			Name:      "kafka_consume_errors_total",
+			Help:      "Total number of Kafka consume errors.",
+		},
+		[]string{"topic"},
+	))
+	if err != nil {
+		return nil, err
 	}
 
 	return c, nil

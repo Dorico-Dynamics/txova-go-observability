@@ -20,109 +20,91 @@ type HTTPCollector struct {
 
 // NewHTTPCollector creates a new HTTPCollector with the given configuration.
 func NewHTTPCollector(cfg Config) (*HTTPCollector, error) {
-	if err := cfg.Validate(); err != nil {
+	cfg, err := cfg.Validate()
+	if err != nil {
 		return nil, err
 	}
 
-	c := &HTTPCollector{
-		requestsTotal: prometheus.NewCounterVec(
-			prometheus.CounterOpts{
-				Namespace: cfg.Namespace,
-				Subsystem: cfg.Subsystem,
-				Name:      "http_requests_total",
-				Help:      "Total number of HTTP requests.",
-			},
-			[]string{"method", "path", "status"},
-		),
-		requestDuration: prometheus.NewHistogramVec(
-			prometheus.HistogramOpts{
-				Namespace: cfg.Namespace,
-				Subsystem: cfg.Subsystem,
-				Name:      "http_request_duration_seconds",
-				Help:      "HTTP request latency in seconds.",
-				Buckets:   HTTPLatencyBuckets,
-			},
-			[]string{"method", "path"},
-		),
-		requestSize: prometheus.NewHistogramVec(
-			prometheus.HistogramOpts{
-				Namespace: cfg.Namespace,
-				Subsystem: cfg.Subsystem,
-				Name:      "http_request_size_bytes",
-				Help:      "HTTP request body size in bytes.",
-				Buckets:   RequestSizeBuckets,
-			},
-			[]string{"method", "path"},
-		),
-		responseSize: prometheus.NewHistogramVec(
-			prometheus.HistogramOpts{
-				Namespace: cfg.Namespace,
-				Subsystem: cfg.Subsystem,
-				Name:      "http_response_size_bytes",
-				Help:      "HTTP response body size in bytes.",
-				Buckets:   RequestSizeBuckets,
-			},
-			[]string{"method", "path"},
-		),
-		requestsInFlight: prometheus.NewGauge(
-			prometheus.GaugeOpts{
-				Namespace: cfg.Namespace,
-				Subsystem: cfg.Subsystem,
-				Name:      "http_requests_in_flight",
-				Help:      "Current number of HTTP requests being processed.",
-			},
-		),
-		panicsTotal: prometheus.NewCounterVec(
-			prometheus.CounterOpts{
-				Namespace: cfg.Namespace,
-				Subsystem: cfg.Subsystem,
-				Name:      "http_panics_total",
-				Help:      "Total number of panics during HTTP request handling.",
-			},
-			[]string{"method", "path"},
-		),
+	c := &HTTPCollector{}
+
+	c.requestsTotal, err = registerCollector(cfg.Registry, prometheus.NewCounterVec(
+		prometheus.CounterOpts{
+			Namespace: cfg.Namespace,
+			Subsystem: cfg.Subsystem,
+			Name:      "http_requests_total",
+			Help:      "Total number of HTTP requests.",
+		},
+		[]string{"method", "path", "status"},
+	))
+	if err != nil {
+		return nil, err
 	}
 
-	// Register all metrics with the registry.
-	collectors := []prometheus.Collector{
-		c.requestsTotal,
-		c.requestDuration,
-		c.requestSize,
-		c.responseSize,
-		c.requestsInFlight,
-		c.panicsTotal,
+	c.requestDuration, err = registerCollector(cfg.Registry, prometheus.NewHistogramVec(
+		prometheus.HistogramOpts{
+			Namespace: cfg.Namespace,
+			Subsystem: cfg.Subsystem,
+			Name:      "http_request_duration_seconds",
+			Help:      "HTTP request latency in seconds.",
+			Buckets:   HTTPLatencyBuckets,
+		},
+		[]string{"method", "path"},
+	))
+	if err != nil {
+		return nil, err
 	}
 
-	for _, collector := range collectors {
-		if err := cfg.Registry.Register(collector); err != nil {
-			// If already registered, try to unregister and re-register.
-			// This can happen in tests or when recreating collectors.
-			if are, ok := err.(prometheus.AlreadyRegisteredError); ok {
-				// Use the existing collector.
-				switch existing := are.ExistingCollector.(type) {
-				case *prometheus.CounterVec:
-					if collector == c.requestsTotal {
-						c.requestsTotal = existing
-					} else if collector == c.panicsTotal {
-						c.panicsTotal = existing
-					}
-				case *prometheus.HistogramVec:
-					if collector == c.requestDuration {
-						c.requestDuration = existing
-					} else if collector == c.requestSize {
-						c.requestSize = existing
-					} else if collector == c.responseSize {
-						c.responseSize = existing
-					}
-				case prometheus.Gauge:
-					if collector == c.requestsInFlight {
-						c.requestsInFlight = existing
-					}
-				}
-			} else {
-				return nil, err
-			}
-		}
+	c.requestSize, err = registerCollector(cfg.Registry, prometheus.NewHistogramVec(
+		prometheus.HistogramOpts{
+			Namespace: cfg.Namespace,
+			Subsystem: cfg.Subsystem,
+			Name:      "http_request_size_bytes",
+			Help:      "HTTP request body size in bytes.",
+			Buckets:   RequestSizeBuckets,
+		},
+		[]string{"method", "path"},
+	))
+	if err != nil {
+		return nil, err
+	}
+
+	c.responseSize, err = registerCollector(cfg.Registry, prometheus.NewHistogramVec(
+		prometheus.HistogramOpts{
+			Namespace: cfg.Namespace,
+			Subsystem: cfg.Subsystem,
+			Name:      "http_response_size_bytes",
+			Help:      "HTTP response body size in bytes.",
+			Buckets:   RequestSizeBuckets,
+		},
+		[]string{"method", "path"},
+	))
+	if err != nil {
+		return nil, err
+	}
+
+	c.requestsInFlight, err = registerCollector(cfg.Registry, prometheus.NewGauge(
+		prometheus.GaugeOpts{
+			Namespace: cfg.Namespace,
+			Subsystem: cfg.Subsystem,
+			Name:      "http_requests_in_flight",
+			Help:      "Current number of HTTP requests being processed.",
+		},
+	))
+	if err != nil {
+		return nil, err
+	}
+
+	c.panicsTotal, err = registerCollector(cfg.Registry, prometheus.NewCounterVec(
+		prometheus.CounterOpts{
+			Namespace: cfg.Namespace,
+			Subsystem: cfg.Subsystem,
+			Name:      "http_panics_total",
+			Help:      "Total number of panics during HTTP request handling.",
+		},
+		[]string{"method", "path"},
+	))
+	if err != nil {
+		return nil, err
 	}
 
 	return c, nil

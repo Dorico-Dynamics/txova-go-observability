@@ -16,79 +16,64 @@ type RedisCollector struct {
 
 // NewRedisCollector creates a new RedisCollector with the given configuration.
 func NewRedisCollector(cfg Config) (*RedisCollector, error) {
-	if err := cfg.Validate(); err != nil {
+	cfg, err := cfg.Validate()
+	if err != nil {
 		return nil, err
 	}
 
-	c := &RedisCollector{
-		commandsTotal: prometheus.NewCounterVec(
-			prometheus.CounterOpts{
-				Namespace: cfg.Namespace,
-				Subsystem: cfg.Subsystem,
-				Name:      "redis_commands_total",
-				Help:      "Total number of Redis commands executed.",
-			},
-			[]string{"command"},
-		),
-		commandDuration: prometheus.NewHistogramVec(
-			prometheus.HistogramOpts{
-				Namespace: cfg.Namespace,
-				Subsystem: cfg.Subsystem,
-				Name:      "redis_command_duration_seconds",
-				Help:      "Redis command latency in seconds.",
-				Buckets:   DBLatencyBuckets,
-			},
-			[]string{"command"},
-		),
-		cacheHitsTotal: prometheus.NewCounterVec(
-			prometheus.CounterOpts{
-				Namespace: cfg.Namespace,
-				Subsystem: cfg.Subsystem,
-				Name:      "redis_cache_hits_total",
-				Help:      "Total number of cache hits.",
-			},
-			[]string{"cache"},
-		),
-		cacheMissTotal: prometheus.NewCounterVec(
-			prometheus.CounterOpts{
-				Namespace: cfg.Namespace,
-				Subsystem: cfg.Subsystem,
-				Name:      "redis_cache_misses_total",
-				Help:      "Total number of cache misses.",
-			},
-			[]string{"cache"},
-		),
+	c := &RedisCollector{}
+
+	c.commandsTotal, err = registerCollector(cfg.Registry, prometheus.NewCounterVec(
+		prometheus.CounterOpts{
+			Namespace: cfg.Namespace,
+			Subsystem: cfg.Subsystem,
+			Name:      "redis_commands_total",
+			Help:      "Total number of Redis commands executed.",
+		},
+		[]string{"command"},
+	))
+	if err != nil {
+		return nil, err
 	}
 
-	// Register all metrics with the registry.
-	collectors := []prometheus.Collector{
-		c.commandsTotal,
-		c.commandDuration,
-		c.cacheHitsTotal,
-		c.cacheMissTotal,
+	c.commandDuration, err = registerCollector(cfg.Registry, prometheus.NewHistogramVec(
+		prometheus.HistogramOpts{
+			Namespace: cfg.Namespace,
+			Subsystem: cfg.Subsystem,
+			Name:      "redis_command_duration_seconds",
+			Help:      "Redis command latency in seconds.",
+			Buckets:   DBLatencyBuckets,
+		},
+		[]string{"command"},
+	))
+	if err != nil {
+		return nil, err
 	}
 
-	for _, collector := range collectors {
-		if err := cfg.Registry.Register(collector); err != nil {
-			if are, ok := err.(prometheus.AlreadyRegisteredError); ok {
-				switch existing := are.ExistingCollector.(type) {
-				case *prometheus.CounterVec:
-					if collector == c.commandsTotal {
-						c.commandsTotal = existing
-					} else if collector == c.cacheHitsTotal {
-						c.cacheHitsTotal = existing
-					} else if collector == c.cacheMissTotal {
-						c.cacheMissTotal = existing
-					}
-				case *prometheus.HistogramVec:
-					if collector == c.commandDuration {
-						c.commandDuration = existing
-					}
-				}
-			} else {
-				return nil, err
-			}
-		}
+	c.cacheHitsTotal, err = registerCollector(cfg.Registry, prometheus.NewCounterVec(
+		prometheus.CounterOpts{
+			Namespace: cfg.Namespace,
+			Subsystem: cfg.Subsystem,
+			Name:      "redis_cache_hits_total",
+			Help:      "Total number of cache hits.",
+		},
+		[]string{"cache"},
+	))
+	if err != nil {
+		return nil, err
+	}
+
+	c.cacheMissTotal, err = registerCollector(cfg.Registry, prometheus.NewCounterVec(
+		prometheus.CounterOpts{
+			Namespace: cfg.Namespace,
+			Subsystem: cfg.Subsystem,
+			Name:      "redis_cache_misses_total",
+			Help:      "Total number of cache misses.",
+		},
+		[]string{"cache"},
+	))
+	if err != nil {
+		return nil, err
 	}
 
 	return c, nil
