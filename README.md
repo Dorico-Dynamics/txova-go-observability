@@ -40,9 +40,11 @@ package main
 
 import (
     "context"
+    "log"
     "net/http"
 
     "github.com/Dorico-Dynamics/txova-go-observability"
+    "github.com/Dorico-Dynamics/txova-go-observability/tracing"
 )
 
 func main() {

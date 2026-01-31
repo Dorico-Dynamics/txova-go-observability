@@ -33,6 +33,10 @@ func (c *PostgresChecker) Name() string {
 func (c *PostgresChecker) Check(ctx context.Context) Result {
 	start := time.Now()
 
+	if c.db == nil {
+		return NewUnhealthyResult(time.Since(start), fmt.Errorf("nil database connection"))
+	}
+
 	if err := c.db.PingContext(ctx); err != nil {
 		return NewUnhealthyResult(time.Since(start), err)
 	}
@@ -74,6 +78,10 @@ func (c *RedisChecker) Name() string {
 // Check performs the health check.
 func (c *RedisChecker) Check(ctx context.Context) Result {
 	start := time.Now()
+
+	if c.client == nil {
+		return NewUnhealthyResult(time.Since(start), fmt.Errorf("nil redis client"))
+	}
 
 	if err := c.client.Ping(ctx); err != nil {
 		return NewUnhealthyResult(time.Since(start), err)
@@ -117,6 +125,10 @@ func (c *KafkaChecker) Name() string {
 // Check performs the health check.
 func (c *KafkaChecker) Check(ctx context.Context) Result {
 	start := time.Now()
+
+	if c.client == nil {
+		return NewUnhealthyResult(time.Since(start), fmt.Errorf("nil kafka client"))
+	}
 
 	if err := c.client.GetMetadata(ctx); err != nil {
 		return NewUnhealthyResult(time.Since(start), err)
